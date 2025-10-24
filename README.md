@@ -15,6 +15,35 @@ Simple frontend with admin/admin login functionality.
 - Docker and Docker Compose
 - Node.js (for local development)
 
+
+
+### Environment Setup
+
+Before running docker-compose, you need to set up environment files:
+
+#### Backend Environment:
+```bash
+# Copy development environment
+cp backend/env.development backend/.env
+
+# Or copy production environment
+cp backend/env.production backend/.env
+```
+
+#### Frontend Environment:
+```bash
+# Copy development environment
+cp frontend/env.development frontend/.env.local
+
+# Or copy production environment
+cp frontend/env.production frontend/.env.local
+```
+
+
+**Note**: The `.env` files contain sensitive configuration and are gitignored. Always use the template files (`env.development`, `env.production`) as starting points.
+
+
+
 ### Run with Docker
 ```bash
 # Start services
