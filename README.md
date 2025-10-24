@@ -1,7 +1,4 @@
-# Trip Optimizer - Simple Frontend with Login
-
-## Overview
-Simple frontend with admin/admin login functionality.
+# Trip Optimizer  
 
 ## Features
 - ✅ Simple login form with admin/admin credentials
