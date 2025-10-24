@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Trip Optimizer - Quick Kubernetes Deploy & Stop Script
-# This script quickly builds images, deploys to Kubernetes, and provides easy cleanup
+# Trip Optimizer - Deploy with YAML (The Right Way!)
+# This script builds images and applies the complete YAML manifest
 
 set -e
 
@@ -28,9 +28,9 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Function to deploy to Kubernetes
-deploy_to_k8s() {
-    print_status "🚀 Starting Quick Kubernetes Deployment..."
+# Function to deploy with YAML
+deploy_with_yaml() {
+    print_status "🚀 Deploying Trip Optimizer with YAML manifests..."
     echo ""
     
     # 1. Start Minikube
@@ -53,68 +53,63 @@ deploy_to_k8s() {
     docker build -t trip-optimizer-frontend:latest ./frontend/
     print_success "Frontend image built"
     
-    # 4. Clean up existing deployments
-    print_status "Cleaning up existing deployments..."
-    kubectl delete deployment frontend backend 2>/dev/null || true
-    kubectl delete service frontend-service backend-service 2>/dev/null || true
+    # 4. Apply the complete YAML manifest
+    print_status "Applying Kubernetes manifests..."
+    kubectl apply -f k8s-manifests.yaml
+    print_success "All resources created"
     
-    # 5. Create deployments
-    print_status "Creating Kubernetes deployments..."
-    kubectl create deployment frontend --image=trip-optimizer-frontend:latest --port=3000
-    kubectl create deployment backend --image=trip-optimizer-backend:latest --port=8000
+    # 5. Wait for deployments to be ready
+    print_status "Waiting for deployments to be ready..."
+    kubectl wait --for=condition=available --timeout=120s deployment/backend -n trip-optimizer
+    kubectl wait --for=condition=available --timeout=120s deployment/frontend -n trip-optimizer
+    kubectl wait --for=condition=available --timeout=120s deployment/redis -n trip-optimizer
+    kubectl wait --for=condition=available --timeout=120s deployment/mongodb -n trip-optimizer
     
-    # 6. Set image pull policy to Never (use local images)
-    print_status "Configuring image pull policy..."
-    kubectl patch deployment frontend -p '{"spec":{"template":{"spec":{"containers":[{"name":"trip-optimizer-frontend","imagePullPolicy":"Never"}]}}}}'
-    kubectl patch deployment backend -p '{"spec":{"template":{"spec":{"containers":[{"name":"trip-optimizer-backend","imagePullPolicy":"Never"}]}}}}'
-    
-    # 7. Create services
-    print_status "Creating services..."
-    kubectl expose deployment frontend --port=3000 --name=frontend-service
-    kubectl expose deployment backend --port=8000 --name=backend-service
-    
-    # 8. Wait for pods to be ready
-    print_status "Waiting for pods to be ready..."
-    kubectl wait --for=condition=available --timeout=120s deployment/frontend
-    kubectl wait --for=condition=available --timeout=120s deployment/backend
-    
-    # 9. Set up port forwarding
+    # 6. Set up port forwarding
     print_status "Setting up port forwarding..."
     pkill -f "kubectl port-forward" 2>/dev/null || true
-    kubectl port-forward service/frontend-service 3000:3000 &
-    kubectl port-forward service/backend-service 8000:8000 &
+    kubectl port-forward service/frontend-service 3000:3000 -n trip-optimizer &
+    kubectl port-forward service/backend-service 8000:8000 -n trip-optimizer &
+    kubectl port-forward service/redis-service 6379:6379 -n trip-optimizer &
+    kubectl port-forward service/mongodb-service 27017:27017 -n trip-optimizer &
     
-    # 10. Show status
+    # 7. Show status
     print_success "🎉 Deployment completed successfully!"
     echo ""
-    print_status "Your application is now running:"
+    print_status "Your complete application stack is now running:"
     echo "  🌐 Frontend: http://localhost:3000"
     echo "  🔧 Backend API: http://localhost:8000"
     echo "  ❤️  Health Check: http://localhost:8000/health"
+    echo "  🔴 Redis: localhost:6379"
+    echo "  🍃 MongoDB: localhost:27017"
+    echo ""
+    print_status "All services are in the 'trip-optimizer' namespace:"
+    echo "  kubectl get all -n trip-optimizer"
     echo ""
     print_status "Useful commands:"
-    echo "  kubectl get pods"
-    echo "  kubectl get services"
-    echo "  kubectl logs -f deployment/frontend"
-    echo "  kubectl logs -f deployment/backend"
+    echo "  kubectl get pods -n trip-optimizer"
+    echo "  kubectl get services -n trip-optimizer"
+    echo "  kubectl logs -f deployment/frontend -n trip-optimizer"
+    echo "  kubectl logs -f deployment/backend -n trip-optimizer"
+    echo "  kubectl logs -f deployment/redis -n trip-optimizer"
+    echo "  kubectl logs -f deployment/mongodb -n trip-optimizer"
     echo "  minikube dashboard"
     echo ""
     print_warning "To stop everything, run: $0 stop"
 }
 
 # Function to stop everything
-stop_k8s() {
-    print_status "🛑 Stopping Kubernetes deployment..."
+stop_deployment() {
+    print_status "🛑 Stopping Trip Optimizer deployment..."
     echo ""
     
     # Stop port forwarding
     print_status "Stopping port forwarding..."
     pkill -f "kubectl port-forward" 2>/dev/null || true
     
-    # Delete deployments and services
-    print_status "Deleting deployments and services..."
-    kubectl delete deployment frontend backend 2>/dev/null || true
-    kubectl delete service frontend-service backend-service 2>/dev/null || true
+    # Delete all resources
+    print_status "Deleting all resources..."
+    kubectl delete -f k8s-manifests.yaml 2>/dev/null || true
     
     # Stop Minikube (optional)
     read -p "Do you want to stop Minikube? (y/N): " -n 1 -r
@@ -138,11 +133,8 @@ show_status() {
     if minikube status | grep -q "Running"; then
         print_success "Minikube: Running"
         echo ""
-        print_status "Pods:"
-        kubectl get pods 2>/dev/null || print_warning "No pods found"
-        echo ""
-        print_status "Services:"
-        kubectl get services 2>/dev/null || print_warning "No services found"
+        print_status "All resources in trip-optimizer namespace:"
+        kubectl get all -n trip-optimizer 2>/dev/null || print_warning "No resources found in trip-optimizer namespace"
         echo ""
         print_status "Port Forwarding:"
         ps aux | grep "kubectl port-forward" | grep -v grep || print_warning "No port forwarding active"
@@ -154,34 +146,37 @@ show_status() {
 # Main script logic
 case "${1:-deploy}" in
     "deploy"|"start")
-        deploy_to_k8s
+        deploy_with_yaml
         ;;
     "stop"|"cleanup")
-        stop_k8s
+        stop_deployment
         ;;
     "status")
         show_status
         ;;
     "restart")
-        stop_k8s
+        stop_deployment
         sleep 2
-        deploy_to_k8s
+        deploy_with_yaml
         ;;
     *)
         echo "Usage: $0 [deploy|stop|status|restart]"
         echo ""
         echo "Commands:"
-        echo "  deploy (default) - Build images and deploy to Kubernetes"
+        echo "  deploy (default) - Build images and deploy with YAML"
         echo "  stop            - Stop all services and cleanup"
         echo "  status          - Show current deployment status"
         echo "  restart         - Stop and redeploy everything"
         echo ""
         echo "Examples:"
-        echo "  $0              # Deploy everything"
-        echo "  $0 deploy       # Deploy everything"
+        echo "  $0              # Deploy everything with YAML"
+        echo "  $0 deploy       # Deploy everything with YAML"
         echo "  $0 stop         # Stop everything"
         echo "  $0 status       # Show status"
         echo "  $0 restart      # Restart everything"
+        echo ""
+        echo "This is the PROPER way to deploy to Kubernetes!"
+        echo "Uses a single YAML file with all resources defined."
         exit 1
         ;;
 esac

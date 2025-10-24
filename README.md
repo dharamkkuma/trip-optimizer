@@ -64,18 +64,48 @@ Deploy your entire application stack (Frontend, Backend, Redis, MongoDB) to Mini
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) installed
 - [Docker](https://docs.docker.com/get-docker/) installed
 
-### 🚀 Super Simple Deployment (Choose One!)
+### Simple Deployment (Choose One!)
 
-**Option 1: Deploy Quickly - Ultra-Quick One-Liner (FASTEST!)**
+**Option 1: Proper Kubernetes Way - Single YAML File (RECOMMENDED!)**
+```bash
+./deploy-yaml.sh
+```
+
+**Option 2: Deploy Quickly - Ultra-Quick One-Liner**
 ```bash
 ./k8s-quick.sh
 ```
 
-**Option 2: Full Control Script (Recommended)** 
+**Option 3: Full Control Script** 
 ```bash
 ./quick-k8s-deploy.sh <START/STOP>
 ```
 
+
+### Why YAML is Better
+
+**Option 1 (YAML)** is the **proper Kubernetes way** because:
+- ✅ **Single Source of Truth**: Everything defined in one file
+- ✅ **Version Control**: Track changes to your infrastructure
+- ✅ **Reproducible**: Same deployment every time
+- ✅ **Complete Stack**: Includes Redis, MongoDB, ConfigMaps, Secrets
+- ✅ **Production Ready**: Proper health checks, resource limits, secrets management
+- ✅ **Easy to Modify**: Edit YAML and reapply
+
+**Manual YAML Deployment:**
+```bash
+# Build images
+eval $(minikube docker-env)
+docker build -t trip-optimizer-backend:latest ./backend/
+docker build -t trip-optimizer-frontend:latest ./frontend/
+
+# Deploy everything with one command
+kubectl apply -f k8s-manifests.yaml
+
+# Set up port forwarding
+kubectl port-forward service/frontend-service 3000:3000 -n trip-optimizer &
+kubectl port-forward service/backend-service 8000:8000 -n trip-optimizer &
+```
 
 ### Access Your Application
 
@@ -83,7 +113,23 @@ After deployment, access your application at:
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8000
+- **Redis**: localhost:6379
+- **MongoDB**: localhost:27017
 - **Minikube Dashboard**: `minikube dashboard`
+
+### Namespace Organization
+
+Your application is deployed in the `trip-optimizer` namespace for better organization:
+
+```bash
+# View resources in your namespace
+kubectl get pods -n trip-optimizer
+kubectl get services -n trip-optimizer
+
+# View logs
+kubectl logs -f deployment/frontend -n trip-optimizer
+kubectl logs -f deployment/backend -n trip-optimizer
+```
 
 ### Useful Commands
 
@@ -117,10 +163,13 @@ minikube ssh
 pkill -f "kubectl port-forward"
 
 # Delete deployments
-kubectl delete deployment frontend backend
+kubectl delete deployment frontend backend -n trip-optimizer
 
 # Delete services
-kubectl delete service frontend-service backend-service
+kubectl delete service frontend-service backend-service -n trip-optimizer
+
+# Delete namespace (optional)
+kubectl delete namespace trip-optimizer
 
 # Stop Minikube (optional)
 minikube stop
