@@ -46,6 +46,26 @@ data:
   NEXT_PUBLIC_ENABLE_DEBUG: "false"
 
 ---
+# ConfigMap for Storage API
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: storage-api-config
+  namespace: trip-optimizer
+data:
+  API_HOST: "0.0.0.0"
+  API_PORT: "8001"
+  PYTHON_ENV: "production"
+  AWS_REGION: "us-east-1"
+  S3_BUCKET_NAME: "dharmendra-ps"
+  UPLOAD_PATH: "uploads/"
+  MAX_FILE_SIZE: "10485760"
+  ALLOWED_FILE_TYPES: "pdf,jpg,jpeg,png,doc,docx,txt"
+  CORS_ORIGINS: "*"
+  CORS_METHODS: "GET,POST,PUT,DELETE"
+  CORS_HEADERS: "*"
+
+---
 # Secrets for Backend
 apiVersion: v1
 kind: Secret
@@ -75,6 +95,21 @@ data:
   # To encode: echo -n "your-secret-value" | base64
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: eW91ci1kZXYtZ29vZ2xlLW1hcHMta2V5  # your-dev-google-maps-key
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: eW91ci1kZXYtc3RyaXBlLWtleQ==  # your-dev-stripe-key
+
+---
+# Secrets for Storage API
+apiVersion: v1
+kind: Secret
+metadata:
+  name: storage-api-secrets
+  namespace: trip-optimizer
+type: Opaque
+data:
+  # Base64 encoded values - replace with your actual values
+  # To encode: echo -n "your-secret-value" | base64
+  AWS_ACCESS_KEY_ID: eW91ci1kZXYtYXdzLWFjY2Vzcy1rZXk=  # your-dev-aws-access-key
+  AWS_SECRET_ACCESS_KEY: eW91ci1kZXYtYXdzLXNlY3JldC1rZXk=  # your-dev-aws-secret-key
+  AWS_SESSION_TOKEN: ""  # Optional: for temporary credentials
 
 ---
 # Redis Deployment
@@ -176,7 +211,7 @@ spec:
         readinessProbe:
           exec:
             command:
-            - mongo
+            - mongosh
             - --eval
             - "db.adminCommand('ping')"
           initialDelaySeconds: 5
@@ -298,6 +333,123 @@ spec:
           httpGet:
             path: /health
             port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+---
+# Storage API Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storage-api
+  namespace: trip-optimizer
+  labels:
+    app: storage-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: storage-api
+  template:
+    metadata:
+      labels:
+        app: storage-api
+    spec:
+      containers:
+      - name: storage-api
+        image: trip-optimizer-storage-api:latest
+        imagePullPolicy: Never  # Use local image in Minikube
+        ports:
+        - containerPort: 8001
+        env:
+        - name: HOST
+          valueFrom:
+            configMapKeyRef:
+              name: storage-api-config
+              key: API_HOST
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: storage-api-config
+              key: API_PORT
+        - name: PYTHON_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: storage-api-config
+              key: PYTHON_ENV
+        - name: AWS_REGION
+          valueFrom:
+            configMapKeyRef:
+              name: storage-api-config
+              key: AWS_REGION
+        - name: S3_BUCKET_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: storage-api-config
+              key: S3_BUCKET_NAME
+        - name: UPLOAD_PATH
+          valueFrom:
+            configMapKeyRef:
+              name: storage-api-config
+              key: UPLOAD_PATH
+        - name: MAX_FILE_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: storage-api-config
+              key: MAX_FILE_SIZE
+        - name: ALLOWED_FILE_TYPES
+          valueFrom:
+            configMapKeyRef:
+              name: storage-api-config
+              key: ALLOWED_FILE_TYPES
+        - name: CORS_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: storage-api-config
+              key: CORS_ORIGINS
+        - name: CORS_METHODS
+          valueFrom:
+            configMapKeyRef:
+              name: storage-api-config
+              key: CORS_METHODS
+        - name: CORS_HEADERS
+          valueFrom:
+            configMapKeyRef:
+              name: storage-api-config
+              key: CORS_HEADERS
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: storage-api-secrets
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: storage-api-secrets
+              key: AWS_SECRET_ACCESS_KEY
+        - name: AWS_SESSION_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: storage-api-secrets
+              key: AWS_SESSION_TOKEN
+              optional: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
           initialDelaySeconds: 5
           periodSeconds: 5
         resources:
@@ -467,6 +619,25 @@ spec:
     app: backend
 
 ---
+# Storage API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: storage-api-service
+  namespace: trip-optimizer
+  labels:
+    app: storage-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8001
+    targetPort: 8001
+    protocol: TCP
+    name: http
+  selector:
+    app: storage-api
+
+---
 # Frontend Service
 apiVersion: v1
 kind: Service
@@ -514,3 +685,10 @@ spec:
             name: backend-service
             port:
               number: 8000
+      - path: /storage-api
+        pathType: Prefix
+        backend:
+          service:
+            name: storage-api-service
+            port:
+              number: 8001

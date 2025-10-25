@@ -20,6 +20,27 @@ services:
     networks:
       - trip-optimizer-network
 
+  # Storage API Service
+  storage-api:
+    build:
+      context: ./storage-api
+      dockerfile: Dockerfile
+    container_name: trip-optimizer-storage-api
+    ports:
+      - "${STORAGE_API_PORT:-8001}:${STORAGE_API_PORT:-8001}"
+    env_file:
+      - ./storage-api/.env
+    volumes:
+      - ./storage-api:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port ${STORAGE_API_PORT:-8001} --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${STORAGE_API_PORT:-8001}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - trip-optimizer-network
+
   # Frontend Service
   frontend:
     build:

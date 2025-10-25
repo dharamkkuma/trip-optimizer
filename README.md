@@ -1,354 +1,61 @@
-# Trip Optimizer - Simple Frontend with Login
+# Trip Optimizer - AI-Powered Travel Expense & Optimization Platform
 
 ## Overview
-Simple frontend with admin/admin login functionality.
+
+Trip Optimizer is an intelligent travel management platform that combines document processing, ML-based expense extraction, and AI-powered travel optimization. The system automatically processes travel invoices (hotels and flights), extracts structured data using machine learning, and continuously monitors travel APIs to find better pricing opportunities for your trips.
+
+## Tech Stack
+
+| Category | Technology | Purpose |
+|----------|------------|---------|
+| **Frontend** | React + Next.js | UI framework |
+| | Tailwind CSS | Styling |
+| **Backend** | Python | Backend services |
+| | Node.js | Additional services |
+| **Database** | MongoDB | Primary database + Vector search |
+| | Redis | Semantic caching, Auth token storage, Pub/Sub messaging |
+| **Storage** | AWS S3 | File storage |
+| **AI/ML** | DeDoc | OCR + Layout parsing |
+| | Voyage-3-large | Embeddings |
+| | Mistral 7B / Llama3.2 7B | LLMs |
+| | LayoutLMv3 + LoRA | PDF extraction model tuning |
+| **Infrastructure** | Docker + Docker Compose | Containerization |
+| | Kubernetes (Minikube) | Deployment |
+| | AWS Cognito | Authentication |
+| | Atlas Search | Autocomplete capabilities |
+| **Automation** | K8s Cron Jobs | Scheduled tasks |
+| | Periodic model fine-tuning | ML model updates |
+
+## System Architecture
+
+![System Architecture](assets/architecture.png)
 
 ## Features
-- ✅ Simple login form with admin/admin credentials
-- ✅ Clean UI with Tailwind CSS
-## Data Flow
 
-1. User uploads PDF via Browser
-   
-2. Storage API receives file
-   → Uploads to S3
-   → Returns file_key and storage_url
-   
-3. Storage API calls Database API
-   → Database API creates document in MongoDB
-   → Database API publishes to Redis Stream
-   → Database API sets status in Redis cache
-   
-4. Parser API worker consumes from Redis Stream
-   → Downloads file from S3
-   → Parses PDF content
-   → Calls Database API to update results
-   
-5. Database API updates MongoDB
-   → Stores parsing results
-   → Updates status to "completed"
-   → Publishes completion event to Redis Pub/Sub
-
-## Quick Start
-
-### Prerequisites
-- Docker and Docker Compose
-- Node.js (for local development)
-
-
-### Environment Setup
-
-Before running docker-compose, you need to set up environment files:
-
-#### Backend Environment:
-```bash
-# Copy development environment
-cp backend/env.development backend/.env
-
-# Or copy production environment
-cp backend/env.production backend/.env
-```
-
-#### Frontend Environment:
-```bash
-# Copy development environment
-cp frontend/env.development frontend/.env.local
-
-# Or copy production environment
-cp frontend/env.production frontend/.env.local
-```
-
-
-**Note**: The `.env` files contain sensitive configuration and are gitignored. Always use the template files (`env.development`, `env.production`) as starting points.
-
-
-
-### Run with Docker for Quick testing
-```bash
-# Start services
-docker-compose up -d
-
-# Check status
-docker-compose ps
-
-# stop services
-docker-compose down
-```
-
-
-## Minikube Deployment
-
-Deploy your entire application stack (Frontend, Backend, Redis, MongoDB) to Minikube on your Mac.
-
-### Prerequisites
-
-- [Minikube](https://minikube.sigs.k8s.io/docs/start/) installed
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) installed
-- [Docker](https://docs.docker.com/get-docker/) installed
-
-### Simple Deployment (Choose One!)
-
-**Option 1: Proper Kubernetes Way - Single YAML File (RECOMMENDED!)**
-```bash
-./deploy-yaml.sh
-```
-
-**Option 2: Deploy Quickly - Ultra-Quick One-Liner**
-```bash
-./k8s-quick.sh
-```
-
-**Option 3: Full Control Script** 
-```bash
-./quick-k8s-deploy.sh <START/STOP>
-```
-
-
-### Why YAML is Better
-
-**Option 1 (YAML)** is the **proper Kubernetes way** because:
-- ✅ **Single Source of Truth**: Everything defined in one file
-- ✅ **Version Control**: Track changes to your infrastructure
-- ✅ **Reproducible**: Same deployment every time
-- ✅ **Complete Stack**: Includes Redis, MongoDB, ConfigMaps, Secrets
-- ✅ **Production Ready**: Proper health checks, resource limits, secrets management
-- ✅ **Easy to Modify**: Edit YAML and reapply
-
-**Manual YAML Deployment:**
-```bash
-# Build images
-eval $(minikube docker-env)
-docker build -t trip-optimizer-backend:latest ./backend/
-docker build -t trip-optimizer-frontend:latest ./frontend/
-
-# Deploy everything with one command
-kubectl apply -f k8s-manifests.yaml
-
-# Set up port forwarding
-kubectl port-forward service/frontend-service 3000:3000 -n trip-optimizer &
-kubectl port-forward service/backend-service 8000:8000 -n trip-optimizer &
-```
-
-### Access Your Application
-
-After deployment, access your application at:
-
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **Redis**: localhost:6379
-- **MongoDB**: localhost:27017
-- **Minikube Dashboard**: `minikube dashboard`
-
-### Namespace Organization
-
-Your application is deployed in the `trip-optimizer` namespace for better organization:
-
-```bash
-# View resources in your namespace
-kubectl get pods -n trip-optimizer
-kubectl get services -n trip-optimizer
-
-# View logs
-kubectl logs -f deployment/frontend -n trip-optimizer
-kubectl logs -f deployment/backend -n trip-optimizer
-```
-
-### Useful Commands
-
-```bash
-# Check deployment status
-kubectl get pods
-kubectl get services
-kubectl get ingress
-
-# View logs
-kubectl logs -f deployment/backend-deployment
-kubectl logs -f deployment/frontend-deployment
-
-# Scale services
-kubectl scale deployment backend-deployment --replicas=3
-
-# Access Minikube shell
-minikube ssh
-```
-
-### Cleanup
-
-**Quick Stop (Recommended):**
-```bash
-./quick-k8s-deploy.sh stop
-```
-
-**Manual Cleanup:**
-```bash
-# Stop port forwarding
-pkill -f "kubectl port-forward"
-
-# Delete deployments
-kubectl delete deployment frontend backend -n trip-optimizer
-
-# Delete services
-kubectl delete service frontend-service backend-service -n trip-optimizer
-
-# Delete namespace (optional)
-kubectl delete namespace trip-optimizer
-
-# Stop Minikube (optional)
-minikube stop
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**1. Minikube won't start**
-```bash
-# Check if Docker is running
-docker ps
-
-# Try with different driver
-minikube start --driver=hyperkit  # For Mac with HyperKit
-minikube start --driver=virtualbox  # For VirtualBox
-```
-
-**2. Images not found in Minikube**
-```bash
-# Make sure you're using Minikube's Docker daemon
-eval $(minikube docker-env)
-
-# Rebuild images
-docker build -t trip-optimizer-backend:latest ./backend/
-docker build -t trip-optimizer-frontend:latest ./frontend/
-```
-
-**3. Pods stuck in Pending state**
-```bash
-# Check pod status
-kubectl describe pod <pod-name>
-
-# Check node resources
-kubectl top nodes
-kubectl describe nodes
-```
-
-**4. Services not accessible**
-```bash
-# Check service endpoints
-kubectl get endpoints
-
-# Test service connectivity
-kubectl run test-pod --image=busybox --rm -it -- nslookup backend-service
-```
-
-**5. Port forwarding issues**
-```bash
-# Kill existing port forwards
-pkill -f "kubectl port-forward"
-
-# Restart port forwarding
-kubectl port-forward service/frontend-service 3000:3000 &
-kubectl port-forward service/backend-service 8000:8000 &
-```
-
-### Getting Help
-
-- Check pod logs: `kubectl logs -f deployment/backend-deployment`
-- View Minikube dashboard: `minikube dashboard`
-- Access Minikube shell: `minikube ssh`
-- Reset Minikube: `minikube delete && minikube start`
-
-
-
-
-### Access Points
-- **Frontend**: http://localhost:3000
-- **API**: http://localhost:8000
-
-
-### Login Credentials
-- **Username**: `admin`
-- **Password**: `admin`
-
-## Local Development
-
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Backend
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-## Project Structure
-
-```
-trip-optimizer/
-├── frontend/               # Next.js React app
-│   ├── src/
-│   │   ├── components/    # React components
-│   │   ├── pages/        # Next.js pages
-│   │   └── utils/        # API utilities
-│   ├── Dockerfile
-│   └── package.json
-├── backend/               # FastAPI backend
-│   ├── app/
-│   │   └── main.py       # API endpoints
-│   ├── Dockerfile
-│   └── requirements.txt
-├── k8s/                   # Kubernetes manifests
-│   ├── configmaps/       # Configuration maps
-│   ├── secrets/          # Kubernetes secrets
-│   ├── services/         # Kubernetes services
-│   ├── deployments/      # Kubernetes deployments
-│   └── ingress/          # Ingress configuration
-├── scripts/               # Deployment scripts
-│   ├── deploy-to-minikube.sh
-│   ├── cleanup-minikube.sh
-│   └── validate-setup.sh
-├── docker-compose.yml    # Docker Compose configuration
-└── README.md
-```
-
-## API Endpoints
-
-### POST /login
-Login with admin/admin credentials
-
-**Request:**
-```json
-{
-  "username": "admin",
-  "password": "admin"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Login successful",
-  "user": {
-    "username": "admin",
-    "name": "Administrator",
-    "role": "admin",
-    "login_time": "2024-01-15T10:30:00"
-  }
-}
-```
-
-### GET /health
-Health check endpoint
-
-**Response:**
-```json
-{
-  "status": "healthy",
-  "timestamp": "2024-01-15T10:30:00"
-}
-```
+1. 📄 Invoice Upload & AI-Powered Parsing
+2. 🔍 Autonomous Travel Optimization
+3. 💬 Conversational AI Interface (RAG)
+
+![Feature Overview](assets/feature-diagram.png)
+
+### 1. 📄 Invoice Upload & AI-Powered Parsing
+Users upload hotel and flight invoices (PDF format)
+
+Machine learning models extract structured data:
+- Flight details (dates, routes, prices, booking references)
+- Hotel information (check-in/out, location, costs, amenities)
+- Passenger/guest details
+
+### 2. 🔍 Autonomous Travel Optimization
+- **Continuous Monitoring**: AI agents periodically scan external travel APIs
+- **💰 Price Optimization**: Identifies better flight and hotel deals
+- **🎯 Smart Recommendations**: Suggests optimal rebooking opportunities
+- **📊 Savings Tracking**: Monitors potential cost savings
+- **⚡ Real-time Alerts**: Notifies users of significant price drops
+
+### 3. 💬 Conversational AI Interface (RAG)
+- **Context-Aware Chat**: Ask questions about your travel documents
+- **📚 Multi-Document Queries**: Search across all uploaded invoices
+- **🧠 Intelligent Retrieval**: RAG-powered responses with source citations
+- **🗺️ Trip Planning Assistance**: General travel advice and recommendations
+- **📈 Expense Analysis**: Query spending patterns and trip costs
