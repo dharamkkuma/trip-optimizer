@@ -109,6 +109,48 @@ curl -X POST "http://localhost:8001/api/v1/upload/multiple" \
 
 
 ```
+### Generate Presigned URLs
+#### Upload URL
+Generate a presigned URL for uploading a file:
+
+**POST** `/api/v1/upload/presigned-upload`
+
+```
+{
+  "success": true,
+  "data": {
+    "file_id": "e0f954ac-3de0-4b9d-ad22-deb302e5658d",
+    "filename": "example.pdf",
+    "upload_url": "https://dharmendra-ps.s3.amazonaws.com/",
+    "upload_fields": {
+      "Content-Type": "pdf",
+      "key": "uploads/e0f954ac-3de0-4b9d-ad22-deb302e5658d/example.pdf",
+      "policy": "...",
+      "signature": "..."
+    },
+    "expires_in": 3600,
+    "expires_at": "2025-10-25T10:24:10.513574Z"
+  }
+}
+```
+Presigned Download URL
+**POST** ` /api/v1/upload/presigned-download/{file_id}?filename=example.pdf&expiration=1800`
+
+```
+{
+  "success": true,
+  "data": {
+    "file_id": "e0f954ac-3de0-4b9d-ad22-deb302e5658d",
+    "filename": "example.pdf",
+    "download_url": "https://dharmendra-ps.s3.amazonaws.com/uploads/...?AWSAccessKeyId=...&Signature=...&Expires=1761386059",
+    "expires_in": 1800,
+    "expires_at": "2025-10-25T09:54:19.920818Z"
+  }
+}
+```
+
+**Response:**
+
 
 ### File Upload Endpoints
 

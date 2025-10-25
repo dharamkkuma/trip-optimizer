@@ -85,3 +85,36 @@ class FileStatusResponse(BaseModel):
             datetime: lambda v: v.isoformat() + "Z",
             UUID: lambda v: str(v)
         }
+
+
+class PresignedDownloadResponse(BaseModel):
+    """Model for presigned download URL response."""
+    
+    file_id: UUID = Field(..., description="Unique identifier for the file")
+    filename: str = Field(..., description="Name of the file")
+    download_url: str = Field(..., description="Presigned URL for downloading the file")
+    expires_in: int = Field(..., description="URL expiration time in seconds")
+    expires_at: datetime = Field(..., description="URL expiration timestamp")
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat() + "Z",
+            UUID: lambda v: str(v)
+        }
+
+
+class PresignedUploadResponse(BaseModel):
+    """Model for presigned upload URL response."""
+    
+    file_id: UUID = Field(..., description="Unique identifier for the file")
+    filename: str = Field(..., description="Name of the file")
+    upload_url: str = Field(..., description="Presigned URL for uploading the file")
+    upload_fields: dict = Field(..., description="Required form fields for upload")
+    expires_in: int = Field(..., description="URL expiration time in seconds")
+    expires_at: datetime = Field(..., description="URL expiration timestamp")
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat() + "Z",
+            UUID: lambda v: str(v)
+        }

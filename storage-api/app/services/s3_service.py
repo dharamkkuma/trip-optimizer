@@ -303,6 +303,120 @@ class S3Service(StorageInterface):
                 f"Unexpected error listing files: {str(e)}",
                 details={"prefix": prefix, "max_keys": max_keys}
             )
+
+    async def generate_presigned_download_url(
+        self, 
+        file_id: str, 
+        filename: str,
+        expiration: int = 3600
+    ) -> str:
+        """
+        Generate a presigned URL for downloading a file from S3.
+        
+        Args:
+            file_id: Unique identifier for the file
+            filename: Name of the file
+            expiration: URL expiration time in seconds (default: 1 hour)
+            
+        Returns:
+            Presigned URL for downloading the file
+        """
+        try:
+            s3_key = f"{self.upload_path}{file_id}/{filename}"
+            
+            presigned_url = self.s3_client.generate_presigned_url(
+                'get_object',
+                Params={
+                    'Bucket': self.bucket_name,
+                    'Key': s3_key
+                },
+                ExpiresIn=expiration
+            )
+            
+            logger.info(f"Generated presigned download URL for file {filename} (ID: {file_id})")
+            return presigned_url
+            
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            error_message = e.response['Error']['Message']
+            logger.error(f"S3 presigned download URL generation failed: {error_code} - {error_message}")
+            raise StorageServiceError(
+                f"Failed to generate presigned download URL: {error_message}",
+                details={
+                    "error_code": error_code,
+                    "file_id": file_id,
+                    "filename": filename
+                }
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error generating presigned download URL: {str(e)}")
+            raise StorageServiceError(
+                f"Unexpected error generating presigned download URL: {str(e)}",
+                details={"file_id": file_id, "filename": filename}
+            )
+
+    async def generate_presigned_upload_url(
+        self, 
+        file_id: str, 
+        filename: str,
+        content_type: str,
+        expiration: int = 3600
+    ) -> dict:
+        """
+        Generate a presigned URL for uploading a file to S3.
+        
+        Args:
+            file_id: Unique identifier for the file
+            filename: Name of the file
+            content_type: MIME type of the file
+            expiration: URL expiration time in seconds (default: 1 hour)
+            
+        Returns:
+            Dictionary containing presigned URL and upload fields
+        """
+        try:
+            s3_key = f"{self.upload_path}{file_id}/{filename}"
+            
+            # Generate presigned POST for multipart upload
+            presigned_post = self.s3_client.generate_presigned_post(
+                Bucket=self.bucket_name,
+                Key=s3_key,
+                Fields={
+                    'Content-Type': content_type,
+                    'x-amz-meta-file_id': file_id,
+                    'x-amz-meta-original_filename': filename,
+                    'x-amz-meta-uploaded_at': datetime.utcnow().isoformat()
+                },
+                Conditions=[
+                    {'Content-Type': content_type},
+                    {'x-amz-meta-file_id': file_id},
+                    {'x-amz-meta-original_filename': filename},
+                    ['content-length-range', 1, 104857600]  # 1 byte to 100MB
+                ],
+                ExpiresIn=expiration
+            )
+            
+            logger.info(f"Generated presigned upload URL for file {filename} (ID: {file_id})")
+            return presigned_post
+            
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            error_message = e.response['Error']['Message']
+            logger.error(f"S3 presigned upload URL generation failed: {error_code} - {error_message}")
+            raise StorageServiceError(
+                f"Failed to generate presigned upload URL: {error_message}",
+                details={
+                    "error_code": error_code,
+                    "file_id": file_id,
+                    "filename": filename
+                }
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error generating presigned upload URL: {str(e)}")
+            raise StorageServiceError(
+                f"Unexpected error generating presigned upload URL: {str(e)}",
+                details={"file_id": file_id, "filename": filename}
+            )
     
     async def health_check(self) -> dict:
         """Check if S3 service is healthy and accessible."""

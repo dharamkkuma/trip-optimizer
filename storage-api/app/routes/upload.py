@@ -9,7 +9,9 @@ from ..models import (
     FileUploadResponse, 
     MultipleFileUploadResponse, 
     APIResponse,
-    ErrorResponse
+    ErrorResponse,
+    PresignedDownloadResponse,
+    PresignedUploadResponse
 )
 from ..services import S3Service
 from ..utils import (
@@ -286,4 +288,161 @@ async def list_files(
         raise
     except Exception as e:
         logger.error(f"Unexpected error listing files: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/presigned-download/{file_id}", response_model=APIResponse[PresignedDownloadResponse])
+async def get_presigned_download_url(
+    file_id: str,
+    filename: str,
+    expiration: int = 3600,
+    current_user: dict = Depends(get_current_user),
+    storage_service: S3Service = Depends(get_storage_service)
+):
+    """
+    Generate a presigned URL for downloading a file from S3.
+    
+    Args:
+        file_id: Unique identifier for the file
+        filename: Name of the file to download
+        expiration: URL expiration time in seconds (default: 3600 = 1 hour)
+        current_user: Current authenticated user
+        storage_service: Storage service instance
+        
+    Returns:
+        APIResponse with presigned download URL
+    """
+    try:
+        # Validate expiration time (max 7 days = 604800 seconds)
+        if expiration <= 0 or expiration > 604800:
+            raise HTTPException(
+                status_code=400, 
+                detail="Expiration time must be between 1 and 604800 seconds (7 days)"
+            )
+        
+        # Validate filename
+        validated_filename = validate_filename(filename)
+        
+        # Generate presigned download URL
+        download_url = await storage_service.generate_presigned_download_url(
+            file_id=file_id,
+            filename=validated_filename,
+            expiration=expiration
+        )
+        
+        from datetime import datetime, timedelta
+        expires_at = datetime.utcnow() + timedelta(seconds=expiration)
+        
+        response_data = PresignedDownloadResponse(
+            file_id=file_id,
+            filename=validated_filename,
+            download_url=download_url,
+            expires_in=expiration,
+            expires_at=expires_at
+        )
+        
+        logger.info(f"User {current_user.get('user_id')} requested presigned download URL for {validated_filename}")
+        
+        return APIResponse(
+            success=True,
+            message="Presigned download URL generated successfully",
+            data=response_data
+        )
+        
+    except FileValidationError as e:
+        logger.warning(f"File validation failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except StorageServiceError as e:
+        logger.error(f"Storage service error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error generating presigned download URL: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/presigned-upload", response_model=APIResponse[PresignedUploadResponse])
+async def get_presigned_upload_url(
+    filename: str = Form(...),
+    content_type: str = Form(...),
+    expiration: int = 3600,
+    current_user: dict = Depends(get_current_user),
+    storage_service: S3Service = Depends(get_storage_service)
+):
+    """
+    Generate a presigned URL for uploading a file to S3.
+    
+    Args:
+        filename: Name of the file to upload
+        content_type: MIME type of the file
+        expiration: URL expiration time in seconds (default: 3600 = 1 hour)
+        current_user: Current authenticated user
+        storage_service: Storage service instance
+        
+    Returns:
+        APIResponse with presigned upload URL and form fields
+    """
+    try:
+        # Validate expiration time (max 7 days = 604800 seconds)
+        if expiration <= 0 or expiration > 604800:
+            raise HTTPException(
+                status_code=400, 
+                detail="Expiration time must be between 1 and 604800 seconds (7 days)"
+            )
+        
+        # Validate filename
+        validated_filename = validate_filename(filename)
+        
+        # Validate content type
+        settings = get_settings()
+        allowed_types = settings.allowed_file_types.split(',')
+        if content_type not in allowed_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Content type '{content_type}' not allowed. Allowed types: {', '.join(allowed_types)}"
+            )
+        
+        # Generate unique file ID
+        from uuid import uuid4
+        file_id = str(uuid4())
+        
+        # Generate presigned upload URL
+        presigned_post = await storage_service.generate_presigned_upload_url(
+            file_id=file_id,
+            filename=validated_filename,
+            content_type=content_type,
+            expiration=expiration
+        )
+        
+        from datetime import datetime, timedelta
+        expires_at = datetime.utcnow() + timedelta(seconds=expiration)
+        
+        response_data = PresignedUploadResponse(
+            file_id=file_id,
+            filename=validated_filename,
+            upload_url=presigned_post['url'],
+            upload_fields=presigned_post['fields'],
+            expires_in=expiration,
+            expires_at=expires_at
+        )
+        
+        logger.info(f"User {current_user.get('user_id')} requested presigned upload URL for {validated_filename}")
+        
+        return APIResponse(
+            success=True,
+            message="Presigned upload URL generated successfully",
+            data=response_data
+        )
+        
+    except FileValidationError as e:
+        logger.warning(f"File validation failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except StorageServiceError as e:
+        logger.error(f"Storage service error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error generating presigned upload URL: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
