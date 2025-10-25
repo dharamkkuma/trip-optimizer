@@ -92,6 +92,8 @@ docker-compose up -d
 ```
 Add | python -m json.tool to any curl command for formatted output:
 
+All Endpoints can be tested in tests/test_all_endpoints
+
 curl -X GET "http://localhost:8001/" -H "accept: application/json"
 http://localhost:8001/docs
 http://localhost:8001/openapi.json
