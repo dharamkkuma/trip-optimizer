@@ -17,7 +17,7 @@ Trip Optimizer is an intelligent travel management platform that combines docume
 | **Storage** | AWS S3 | File storage |
 | **AI/ML** | DeDoc | OCR + Layout parsing |
 | | Voyage-3-large | Embeddings |
-| | Mistral 7B / Llama 2 7B /  | LLMs |
+| | Mistral 7B(v0.3) / Llama 2 7B / gemma3:4b (Text, Image) | LLMs |
 | | LayoutLMv3 + LoRA | PDF extraction model tuning |
 | **Infrastructure** | Docker + Docker Compose | Containerization |
 | | Kubernetes (Minikube) | Deployment |
