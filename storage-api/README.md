@@ -1,6 +1,7 @@
 # Storage API
 
-A FastAPI-based microservice for handling file uploads to multiple cloud storage providers (AWS S3, Google Cloud Storage, Azure Blob Storage).
+A FastAPI-based microservice for handling file uploads to multiple cloud storage providers
+Currently supports - S3 in Future (Google Cloud Storage, Azure Blob Storage).
 
 ## Features
 
@@ -18,9 +19,6 @@ A FastAPI-based microservice for handling file uploads to multiple cloud storage
   - boto3 (AWS S3)
   - google-cloud-storage (GCP)
   - azure-storage-blob (Azure)
-- **Authentication**: JWT tokens
-- **Rate Limiting**: Redis-based rate limiter
-- **Database**: Redis (for rate limiting and caching)
 
 ## Project Structure
 
@@ -59,56 +57,55 @@ storage-api/
 └── README.md               # This file
 ```
 
-## Environment Configuration
 
-Create a `.env` file in the root directory with the following variables:
 
-```env
-# Application Settings
-APP_NAME=Storage API
-APP_VERSION=1.0.0
-DEBUG=True
-HOST=0.0.0.0
-PORT=8000
 
-# Authentication
-JWT_SECRET_KEY=your-super-secret-jwt-key-here
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
+## Quick Setup with Conda
 
-# Redis Configuration (for rate limiting)
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
+### Use conda to install dependencies or pip install requirements
+```bash
+# Run the setup script
+./setup.sh
 
-# AWS S3 Configuration
+# Activate the environment
+conda activate storage-api
+
+```
+
+### PROVIDE AWS CREDENTIALS
+
+```
 AWS_ACCESS_KEY_ID=your-aws-access-key
 AWS_SECRET_ACCESS_KEY=your-aws-secret-key
 AWS_REGION=us-east-1
 S3_BUCKET_NAME=your-s3-bucket-name
-
-# Google Cloud Storage Configuration (Optional)
-GCP_PROJECT_ID=your-gcp-project-id
-GCP_BUCKET_NAME=your-gcp-bucket-name
-GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account.json
-
-# Azure Blob Storage Configuration (Optional)
-AZURE_STORAGE_ACCOUNT_NAME=your-azure-account-name
-AZURE_STORAGE_ACCOUNT_KEY=your-azure-account-key
-AZURE_CONTAINER_NAME=your-azure-container-name
-
-# File Upload Settings
-MAX_FILE_SIZE_MB=100
-ALLOWED_FILE_TYPES=image/jpeg,image/png,image/gif,application/pdf,text/plain
-UPLOAD_PATH=uploads/
+AWS_SESSION_TOKEN=""
 ```
 
-## API Endpoints
-
-### Authentication
-All endpoints require JWT authentication. Include the token in the Authorization header:
+### Option : Docker Based
+```bash
+docker-compose up --build
+docker-compose up -d
 ```
-Authorization: Bearer <your-jwt-token>
+
+### Test Endpoints
+```
+Add | python -m json.tool to any curl command for formatted output:
+
+curl -X GET "http://localhost:8001/" -H "accept: application/json"
+http://localhost:8001/docs
+http://localhost:8001/openapi.json
+curl -X GET "http://localhost:8001/api/v1/upload/list?max_keys=10"
+
+curl -X POST "http://localhost:8001/api/v1/upload/multiple" \
+  -H "accept: application/json" \
+  -F "files=@/path/to/file1.pdf" \
+  -F "files=@/path/to/file2.jpg" \
+  -F "files=@/path/to/file3.txt"
+
+  curl -X GET "http://localhost:8001/api/v1/upload/status/{file_id}" -H "accept: application/json"
+
+
 ```
 
 ### File Upload Endpoints
@@ -211,19 +208,3 @@ Check if the service is running.
   "version": "1.0.0"
 }
 ```
-
-#### 5. Storage Health Check
-**GET** `/health/storage`
-
-Check if the configured storage provider is accessible.
-
-**Response:**
-```json
-{
-  "status": "healthy",
-  "storage_provider": "s3",
-  "bucket_accessible": true,
-  "timestamp": "2024-01-15T10:30:00Z"
-}
-```
-

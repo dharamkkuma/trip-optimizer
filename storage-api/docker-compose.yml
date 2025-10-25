@@ -1,0 +1,19 @@
+services:
+  storage-api:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      - DEBUG=True
+      - JWT_SECRET_KEY=your-super-secret-jwt-key-here-must-be-at-least-32-characters-long
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - REDIS_HOST=redis
+      - CORS_ORIGINS=*
+      - CORS_METHODS=GET,POST,PUT,DELETE
+      - CORS_HEADERS=*
+    volumes:
+      - .:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
