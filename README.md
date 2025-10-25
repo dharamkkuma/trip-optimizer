@@ -1,17 +1,39 @@
-# Trip Optimizer  
+# Trip Optimizer - Simple Frontend with Login
+
+## Overview
+Simple frontend with admin/admin login functionality.
 
 ## Features
 - ✅ Simple login form with admin/admin credentials
 - ✅ Clean UI with Tailwind CSS
-- ✅ Local authentication with API endpoint
-- ✅ Post-login dashboard
+## Data Flow
+
+1. User uploads PDF via Browser
+   
+2. Storage API receives file
+   → Uploads to S3
+   → Returns file_key and storage_url
+   
+3. Storage API calls Database API
+   → Database API creates document in MongoDB
+   → Database API publishes to Redis Stream
+   → Database API sets status in Redis cache
+   
+4. Parser API worker consumes from Redis Stream
+   → Downloads file from S3
+   → Parses PDF content
+   → Calls Database API to update results
+   
+5. Database API updates MongoDB
+   → Stores parsing results
+   → Updates status to "completed"
+   → Publishes completion event to Redis Pub/Sub
 
 ## Quick Start
 
 ### Prerequisites
 - Docker and Docker Compose
 - Node.js (for local development)
-
 
 
 ### Environment Setup
@@ -48,6 +70,9 @@ docker-compose up -d
 
 # Check status
 docker-compose ps
+
+# stop services
+docker-compose down
 ```
 
 
