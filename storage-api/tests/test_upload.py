@@ -1,6 +1,27 @@
 #!/usr/bin/env python3
 """
 Test script to upload a file to the Storage API.
+
+curl -X POST "http://localhost:8001/api/v1/upload/single" \
+  -F "file=@/path/to/your/file.pdf"
+
+Response:
+
+{
+  "success": true,
+  "message": "File uploaded successfully",
+  "data": {
+    "file_id": "791a9986-883d-447c-ac54-a7917dd42770",
+    "filename": "VIP.pdf",
+    "file_size": 1463774,
+    "file_type": "application/pdf",
+    "storage_url": "https://dharmendra-ps.s3.us-east-1.amazonaws.com/uploads/791a9986-883d-447c-ac54-a7917dd42770/VIP.pdf",
+    "uploaded_at": "2025-10-25T08:41:39.311662Z"
+  },
+  "timestamp": "2025-10-25T08:41:39.311928Z"
+}
+
+
 """
 
 import requests
@@ -10,21 +31,7 @@ from datetime import datetime, timedelta
 
 # Configuration
 API_BASE_URL = "http://localhost:8001"
-JWT_SECRET_KEY = "your-super-secret-jwt-key-here-must-be-at-least-32-characters-long"
-FILE_PATH = "/Users/dharmendra.kumar/Downloads/VIP.pdf"
-
-def create_jwt_token():
-    """Create a JWT token for authentication."""
-    payload = {
-        "sub": "test-user",
-        "username": "testuser",
-        "email": "test@example.com",
-        "roles": ["user"],
-        "exp": datetime.utcnow() + timedelta(minutes=30)
-    }
-    
-    token = jwt.encode(payload, JWT_SECRET_KEY, algorithm="HS256")
-    return token
+FILE_PATH = "/Users/dharmendra.kumar/Downloads/VIP2.pdf"
 
 def test_health():
     """Test the health endpoint."""
@@ -40,17 +47,6 @@ def test_health():
 def upload_file():
     """Upload a file to the Storage API."""
     try:
-        # Create JWT token
-        token = create_jwt_token()
-        print(f"Created JWT token: {token[:50]}...")
-        
-        # Prepare headers
-        headers = {
-            "Authorization": f"Bearer {token}"
-        }
-        
-        print(f"Authorization header: Bearer {token[:50]}...")
-        
         # Prepare file
         with open(FILE_PATH, 'rb') as file:
             files = {
@@ -61,7 +57,6 @@ def upload_file():
             print(f"Uploading file: {FILE_PATH}")
             response = requests.post(
                 f"{API_BASE_URL}/api/v1/upload/single",
-                headers=headers,
                 files=files
             )
             
@@ -70,6 +65,7 @@ def upload_file():
             
             if response.status_code == 200:
                 result = response.json()
+                print(f"result: {result}")
                 print(f"✅ Upload successful!")
                 print(f"File ID: {result['data']['file_id']}")
                 print(f"Storage URL: {result['data']['storage_url']}")
