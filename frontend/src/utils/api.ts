@@ -258,6 +258,151 @@ export const authAPI = {
     } catch (error) {
       console.error('Error clearing auth data:', error)
     }
+  },
+
+  // Admin functions
+  getAllUsers: async (params?: {
+    page?: number
+    limit?: number
+    search?: string
+    role?: string
+    status?: string
+  }): Promise<any> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const queryParams = new URLSearchParams()
+      if (params?.page) queryParams.append('page', params.page.toString())
+      if (params?.limit) queryParams.append('limit', params.limit.toString())
+      if (params?.search) queryParams.append('search', params.search)
+      if (params?.role) queryParams.append('role', params.role)
+      if (params?.status) queryParams.append('status', params.status)
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/admin/users?${queryParams.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        return data.data
+      } else {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to get users')
+      }
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to get users')
+    }
+  },
+
+  getUserById: async (userId: string): Promise<User> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/admin/users/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        return data.data.data
+      } else {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to get user')
+      }
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to get user')
+    }
+  },
+
+  updateUser: async (userId: string, userData: Partial<User>): Promise<User> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        return data.data.data
+      } else {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to update user')
+      }
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to update user')
+    }
+  },
+
+  deleteUser: async (userId: string): Promise<void> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to delete user')
+      }
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to delete user')
+    }
+  },
+
+  resetUserPassword: async (userId: string, newPassword: string): Promise<void> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ newPassword }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to reset password')
+      }
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to reset password')
+    }
   }
 }
 

@@ -3,6 +3,7 @@ import Head from 'next/head'
 import LoginForm from '../components/LoginForm'
 import RegisterForm from '../components/RegisterForm'
 import UserProfile from '../components/UserProfile'
+import UserManagement from '../components/UserManagement'
 import FileUpload from '../components/FileUpload'
 import { authAPI, User } from '../utils/api'
 
@@ -110,6 +111,13 @@ export default function Home() {
                   <FileUpload />
                 </div>
               </div>
+
+              {/* Admin User Management */}
+              {user?.role === 'admin' && (
+                <div className="mt-8">
+                  <UserManagement currentUser={user} />
+                </div>
+              )}
             </div>
           )}
         </div>

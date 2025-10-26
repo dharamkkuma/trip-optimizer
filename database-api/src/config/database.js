@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { initializeAdminUser } = require('../../init-admin');
 
 const connectDB = async () => {
   try {
@@ -8,6 +9,10 @@ const connectDB = async () => {
     });
 
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+    
+    // Initialize admin user after successful connection
+    await initializeAdminUser();
+    
   } catch (error) {
     console.error('Database connection error:', error);
     process.exit(1);
