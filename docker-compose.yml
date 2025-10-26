@@ -41,6 +41,33 @@ services:
     networks:
       - trip-optimizer-network
 
+  # Auth API Service
+  auth-api:
+    build:
+      context: ./auth-api
+      dockerfile: Dockerfile
+    container_name: trip-optimizer-auth-api
+    ports:
+      - "${AUTH_API_PORT:-8003}:${AUTH_API_PORT:-8003}"
+    env_file:
+      - ./auth-api/env.development
+    environment:
+      - DATABASE_API_URL=http://database-api:8002
+    depends_on:
+      - database-api
+      - mongodb
+    volumes:
+      - ./auth-api:/app
+      - /app/node_modules
+    command: npm run dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${AUTH_API_PORT:-8003}/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - trip-optimizer-network
+
   # Database API Service
   database-api:
     build:
@@ -99,6 +126,7 @@ services:
     depends_on:
       - backend
       - database-api
+      - auth-api
     volumes:
       - ./frontend:/app
       - /app/node_modules

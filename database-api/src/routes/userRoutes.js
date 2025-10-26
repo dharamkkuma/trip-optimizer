@@ -364,4 +364,221 @@ router.get('/search/:query', [
   }
 });
 
+// POST /api/users/authenticate - Authenticate user (for Auth API)
+router.post('/authenticate', [
+  body('emailOrUsername').notEmpty().withMessage('Email or username is required'),
+  body('password').notEmpty().withMessage('Password is required'),
+  validateRequest
+], async (req, res) => {
+  try {
+    const { emailOrUsername, password } = req.body;
+    
+    // Find user by email or username
+    const user = await User.findOne({
+      $or: [
+        { email: emailOrUsername.toLowerCase() },
+        { username: emailOrUsername.toLowerCase() }
+      ],
+      status: 'active'
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
+    // Verify password
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Authentication successful',
+      data: {
+        user: user.toSafeObject()
+      }
+    });
+  } catch (error) {
+    console.error('Error authenticating user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Authentication failed',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/users/check-exists - Check if user exists (for Auth API)
+router.get('/check-exists', [
+  query('email').optional().isEmail().withMessage('Valid email required'),
+  query('username').optional().isLength({ min: 3 }).withMessage('Username must be at least 3 characters'),
+  validateRequest
+], async (req, res) => {
+  try {
+    const { email, username } = req.query;
+    
+    if (!email && !username) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email or username is required'
+      });
+    }
+
+    const query = {};
+    if (email) query.email = email.toLowerCase();
+    if (username) query.username = username.toLowerCase();
+
+    const existingUser = await User.findOne({
+      $or: [
+        { email: email?.toLowerCase() },
+        { username: username?.toLowerCase() }
+      ]
+    });
+
+    res.json({
+      success: true,
+      exists: !!existingUser
+    });
+  } catch (error) {
+    console.error('Error checking user existence:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking user existence',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/users/:id/refresh-tokens - Add refresh token (for Auth API)
+router.post('/:id/refresh-tokens', [
+  param('id').isMongoId().withMessage('Invalid user ID'),
+  body('token').notEmpty().withMessage('Token is required'),
+  validateRequest
+], async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    user.refreshTokens.push({ token: req.body.token });
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Refresh token added successfully'
+    });
+  } catch (error) {
+    console.error('Error adding refresh token:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error adding refresh token',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/users/:id/refresh-tokens - Get refresh tokens (for Auth API)
+router.get('/:id/refresh-tokens', [
+  param('id').isMongoId().withMessage('Invalid user ID'),
+  validateRequest
+], async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('refreshTokens');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        tokens: user.refreshTokens
+      }
+    });
+  } catch (error) {
+    console.error('Error getting refresh tokens:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting refresh tokens',
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/users/:id/refresh-tokens - Remove specific refresh token (for Auth API)
+router.delete('/:id/refresh-tokens', [
+  param('id').isMongoId().withMessage('Invalid user ID'),
+  body('token').notEmpty().withMessage('Token is required'),
+  validateRequest
+], async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    user.refreshTokens = user.refreshTokens.filter(tokenObj => tokenObj.token !== req.body.token);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Refresh token removed successfully'
+    });
+  } catch (error) {
+    console.error('Error removing refresh token:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error removing refresh token',
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/users/:id/refresh-tokens/all - Remove all refresh tokens (for Auth API)
+router.delete('/:id/refresh-tokens/all', [
+  param('id').isMongoId().withMessage('Invalid user ID'),
+  validateRequest
+], async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    user.refreshTokens = [];
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'All refresh tokens removed successfully'
+    });
+  } catch (error) {
+    console.error('Error removing all refresh tokens:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error removing all refresh tokens',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
