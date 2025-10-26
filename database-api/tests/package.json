@@ -1,0 +1,25 @@
+{
+  "name": "database-api-tests",
+  "version": "1.0.0",
+  "description": "Test suite for Database API endpoints",
+  "main": "test_all_endpoints.js",
+  "scripts": {
+    "test": "node test_all_endpoints.js",
+    "view": "node view_api_responses.js",
+    "test:health": "node -e \"require('./test_all_endpoints.js').checkApiStatus()\"",
+    "test:users": "node -e \"require('./test_all_endpoints.js').testUserEndpoints()\""
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "api",
+    "testing",
+    "database",
+    "endpoints",
+    "trip-optimizer"
+  ],
+  "author": "Trip Optimizer Team",
+  "license": "MIT"
+}

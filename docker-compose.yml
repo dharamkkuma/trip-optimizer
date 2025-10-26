@@ -41,6 +41,51 @@ services:
     networks:
       - trip-optimizer-network
 
+  # Database API Service
+  database-api:
+    build:
+      context: ./database-api
+      dockerfile: Dockerfile
+    container_name: trip-optimizer-database-api
+    ports:
+      - "${DATABASE_API_PORT:-8002}:${DATABASE_API_PORT:-8002}"
+    env_file:
+      - ./database-api/env.development
+    depends_on:
+      - mongodb
+    volumes:
+      - ./database-api:/app
+      - /app/node_modules
+    command: npm run dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${DATABASE_API_PORT:-8002}/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - trip-optimizer-network
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: trip-optimizer-mongodb
+    ports:
+      - "${MONGODB_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-trip_optimizer}
+    volumes:
+      - mongodb_data:/data/db
+      - ./database-api/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - trip-optimizer-network
+
   # Frontend Service
   frontend:
     build:
@@ -53,6 +98,7 @@ services:
       - ./frontend/.env.local
     depends_on:
       - backend
+      - database-api
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -68,3 +114,7 @@ services:
 networks:
   trip-optimizer-network:
     driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local

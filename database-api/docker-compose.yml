@@ -1,0 +1,53 @@
+services:
+  # Database API Service
+  database-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: database-api
+    ports:
+      - "8002:8002"
+    env_file:
+      - ./env.development
+    depends_on:
+      - mongodb
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - database-network
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: database-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: trip_optimizer
+    volumes:
+      - mongodb_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - database-network
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  database-network:
+    driver: bridge
