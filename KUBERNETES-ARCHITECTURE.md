@@ -1,83 +1,126 @@
-# Kubernetes Deployment Architecture
+# Kubernetes Deployment Architecture - Trip Optimizer
 
-## How Your Application Works in Kubernetes
+## Complete Application Architecture in Kubernetes
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        MINIKUBE CLUSTER                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
-│  │   Frontend  │    │   Backend   │    │    Redis    │         │
-│  │    Pod      │    │    Pod      │    │    Pod      │         │
-│  │             │    │             │    │             │         │
-│  │ Port: 3000  │    │ Port: 8000  │    │ Port: 6379  │         │
-│  └─────────────┘    └─────────────┘    └─────────────┘         │
-│         │                   │                   │               │
-│         └───────────────────┼───────────────────┘               │
-│                             │                                   │
-│  ┌─────────────┐            │                                   │
-│  │   MongoDB   │            │                                   │
-│  │    Pod      │            │                                   │
-│  │             │            │                                   │
-│  │ Port: 27017 │            │                                   │
-│  └─────────────┘            │                                   │
-│                             │                                   │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │                Kubernetes Services                          │ │
-│  │                                                             │ │
-│  │  frontend-service → frontend-pod:3000                      │ │
-│  │  backend-service  → backend-pod:8000                       │ │
-│  │  redis-service    → redis-pod:6379                         │ │
-│  │  mongodb-service  → mongodb-pod:27017                      │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              MINIKUBE CLUSTER                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
+│  │   Frontend  │    │   Backend   │    │ Database-API│    │ Storage-API │     │
+│  │    Pod      │    │    Pod      │    │    Pod      │    │    Pod      │     │
+│  │             │    │             │    │             │    │             │     │
+│  │ Port: 3000  │    │ Port: 8000  │    │ Port: 8002  │    │ Port: 8001  │     │
+│  └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘     │
+│         │                   │                   │                   │           │
+│         └───────────────────┼───────────────────┼───────────────────┘           │
+│                             │                   │                               │
+│  ┌─────────────┐            │                   │                               │
+│  │   MongoDB   │            │                   │                               │
+│  │    Pod      │            │                   │                               │
+│  │             │            │                   │                               │
+│  │ Port: 27017 │            │                   │                               │
+│  └─────────────┘            │                   │                               │
+│                             │                   │                               │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐ │
+│  │                        Kubernetes Services                                  │ │
+│  │                                                                             │ │
+│  │  frontend-service    → frontend-pod:3000                                   │ │
+│  │  backend-service     → backend-pod:8000                                    │ │
+│  │  database-api-service → database-api-pod:8002                             │ │
+│  │  storage-api-service → storage-api-pod:8001                               │ │
+│  │  mongodb-service     → mongodb-pod:27017                                   │ │
+│  └─────────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────────┘
                                 │
                                 │ Port Forwarding
                                 │
-┌─────────────────────────────────────────────────────────────────┐
-│                    YOUR LOCAL MACHINE                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  http://localhost:3000  ←→  frontend-service                   │
-│  http://localhost:8000  ←→  backend-service                    │
-│  localhost:6379         ←→  redis-service                      │
-│  localhost:27017        ←→  mongodb-service                    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                            YOUR LOCAL MACHINE                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  http://localhost:3000  ←→  frontend-service                                   │
+│  http://localhost:8000  ←→  backend-service                                    │
+│  http://localhost:8001  ←→  storage-api-service                               │
+│  http://localhost:8002  ←→  database-api-service                              │
+│  localhost:27017        ←→  mongodb-service                                    │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Step-by-Step Deployment Process
 
 ### 1. **Pod Creation**
 ```bash
+# Frontend Pod
 kubectl run frontend --image=trip-optimizer-frontend:latest --port=3000
+
+# Backend Pod
+kubectl run backend --image=trip-optimizer-backend:latest --port=8000
+
+# Database API Pod
+kubectl run database-api --image=trip-optimizer-database-api:latest --port=8002
+
+# Storage API Pod
+kubectl run storage-api --image=trip-optimizer-storage-api:latest --port=8001
+
+# MongoDB Pod
+kubectl run mongodb --image=mongo:7.0 --port=27017
 ```
-- Creates a container running your frontend
-- Assigns it a unique IP address inside the cluster
-- Pod can communicate with other pods by name
+- Creates containers for each microservice
+- Each pod gets a unique IP address inside the cluster
+- Pods can communicate with each other by service name
 
 ### 2. **Service Creation**
 ```bash
+# Frontend Service
 kubectl expose pod frontend --port=3000 --name=frontend-service
+
+# Backend Service
+kubectl expose pod backend --port=8000 --name=backend-service
+
+# Database API Service
+kubectl expose pod database-api --port=8002 --name=database-api-service
+
+# Storage API Service
+kubectl expose pod storage-api --port=8001 --name=storage-api-service
+
+# MongoDB Service
+kubectl expose pod mongodb --port=27017 --name=mongodb-service
 ```
-- Creates a stable endpoint for your pod
-- Other pods can find your frontend at `frontend-service:3000`
-- Provides load balancing if you have multiple pods
+- Creates stable endpoints for each pod
+- Services provide load balancing and service discovery
+- Other pods can find services by name (e.g., `backend-service:8000`)
 
 ### 3. **Port Forwarding**
 ```bash
+# Frontend
 kubectl port-forward service/frontend-service 3000:3000
-```
-- Maps your local port 3000 to the Kubernetes service
-- Allows you to access the pod from your local machine
-- Creates a tunnel: `localhost:3000` → `frontend-service:3000` → `frontend-pod:3000`
 
-### 4. **Inter-Pod Communication**
+# Backend
+kubectl port-forward service/backend-service 8000:8000
+
+# Database API
+kubectl port-forward service/database-api-service 8002:8002
+
+# Storage API
+kubectl port-forward service/storage-api-service 8001:8001
+
+# MongoDB
+kubectl port-forward service/mongodb-service 27017:27017
+```
+- Maps local ports to Kubernetes services
+- Allows access from your local machine
+- Creates tunnels: `localhost:PORT` → `service-name:PORT` → `pod:PORT`
+
+### 4. **Inter-Service Communication**
 ```
 Frontend Pod → backend-service:8000 → Backend Pod
-Backend Pod  → redis-service:6379   → Redis Pod
-Backend Pod  → mongodb-service:27017 → MongoDB Pod
+Backend Pod  → database-api-service:8002 → Database API Pod
+Backend Pod  → storage-api-service:8001 → Storage API Pod
+Database API Pod → mongodb-service:27017 → MongoDB Pod
+Storage API Pod → mongodb-service:27017 → MongoDB Pod
 ```
 
 ## Why This Architecture is Powerful
@@ -94,41 +137,67 @@ Backend Pod  → mongodb-service:27017 → MongoDB Pod
 
 ### **3. Scaling**
 ```bash
-# Scale your backend to 3 instances
+# Scale individual services independently
 kubectl scale deployment backend --replicas=3
+kubectl scale deployment database-api --replicas=2
+kubectl scale deployment storage-api --replicas=2
+kubectl scale deployment frontend --replicas=2
 ```
+- Scale each microservice independently based on demand
 - Kubernetes automatically distributes traffic
-- Load balancing happens automatically
+- Load balancing happens automatically across replicas
 
 ### **4. Health Checks**
 - Kubernetes monitors pod health
 - Automatically restarts failed pods
 - Removes unhealthy pods from service
 
-## Real-World Example
+## Real-World Example - Trip Optimizer Flow
 
-When you access `http://localhost:3000`:
+When you access `http://localhost:3000` (Frontend):
 
-1. **Request Flow:**
+1. **Frontend Request Flow:**
    ```
    Your Browser → localhost:3000 → kubectl port-forward → frontend-service → frontend-pod
    ```
 
-2. **Frontend makes API call:**
+2. **Frontend makes API calls to Backend:**
    ```
    Frontend Pod → backend-service:8000 → Backend Pod
    ```
 
-3. **Backend needs data:**
+3. **Backend orchestrates data from multiple APIs:**
    ```
-   Backend Pod → redis-service:6379 → Redis Pod (for caching)
-   Backend Pod → mongodb-service:27017 → MongoDB Pod (for data)
+   Backend Pod → database-api-service:8002 → Database API Pod (user data)
+   Backend Pod → storage-api-service:8001 → Storage API Pod (file storage)
    ```
 
-4. **Response flows back:**
+4. **Database API retrieves user data:**
    ```
-   MongoDB → Backend → Frontend → Your Browser
+   Database API Pod → mongodb-service:27017 → MongoDB Pod
    ```
+
+5. **Storage API handles file operations:**
+   ```
+   Storage API Pod → mongodb-service:27017 → MongoDB Pod (metadata)
+   Storage API Pod → External Storage (S3, etc.) → File Storage
+   ```
+
+6. **Complete Response Flow:**
+   ```
+   MongoDB → Database API → Backend → Frontend → Your Browser
+   MongoDB → Storage API → Backend → Frontend → Your Browser
+   ```
+
+### **Service Responsibilities:**
+
+| Service | Port | Purpose | Dependencies |
+|---------|------|---------|--------------|
+| **Frontend** | 3000 | React UI | Backend API |
+| **Backend** | 8000 | Main API | Database-API, Storage-API |
+| **Database-API** | 8002 | User Management | MongoDB |
+| **Storage-API** | 8001 | File Storage | MongoDB |
+| **MongoDB** | 27017 | Database | None |
 
 ## Benefits Over Docker Compose
 
@@ -168,3 +237,42 @@ kubectl create -f ingress.yaml
 ```
 
 This is why Kubernetes is so powerful - it handles all the complex networking, service discovery, and scaling automatically!
+
+## Quick Reference - All Services & Ports
+
+### **Local Access URLs:**
+- **Frontend**: http://localhost:3000
+- **Backend**: http://localhost:8000
+- **Storage API**: http://localhost:8001
+- **Database API**: http://localhost:8002
+- **MongoDB**: localhost:27017
+
+### **Kubernetes Service Names:**
+- `frontend-service:3000`
+- `backend-service:8000`
+- `storage-api-service:8001`
+- `database-api-service:8002`
+- `mongodb-service:27017`
+
+### **Quick Commands:**
+```bash
+# Start all services
+kubectl port-forward service/frontend-service 3000:3000 &
+kubectl port-forward service/backend-service 8000:8000 &
+kubectl port-forward service/storage-api-service 8001:8001 &
+kubectl port-forward service/database-api-service 8002:8002 &
+kubectl port-forward service/mongodb-service 27017:27017 &
+
+# Check all pods
+kubectl get pods
+
+# Check all services
+kubectl get services
+
+# View logs
+kubectl logs frontend
+kubectl logs backend
+kubectl logs database-api
+kubectl logs storage-api
+kubectl logs mongodb
+```
