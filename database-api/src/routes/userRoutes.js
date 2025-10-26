@@ -75,6 +75,79 @@ router.get('/', [
   }
 });
 
+// GET /api/users/check-exists - Check if user exists (for Auth API)
+router.get('/check-exists', [
+  query('email').optional().isEmail().withMessage('Valid email required'),
+  query('username').optional().isLength({ min: 3 }).withMessage('Username must be at least 3 characters'),
+  validateRequest
+], async (req, res) => {
+  try {
+    const { email, username } = req.query;
+    
+    if (!email && !username) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email or username is required'
+      });
+    }
+
+    const query = {};
+    if (email) query.email = email.toLowerCase();
+    if (username) query.username = username.toLowerCase();
+
+    const existingUser = await User.findOne({
+      $or: [
+        { email: email?.toLowerCase() },
+        { username: username?.toLowerCase() }
+      ]
+    });
+
+    res.json({
+      success: true,
+      exists: !!existingUser
+    });
+  } catch (error) {
+    console.error('Error checking user existence:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking user existence',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/users/search/:query - Search users
+router.get('/search/:query', [
+  param('query').isLength({ min: 1 }).withMessage('Search query is required'),
+  validateRequest
+], async (req, res) => {
+  try {
+    const query = req.params.query;
+    const users = await User.find({
+      $or: [
+        { firstName: { $regex: query, $options: 'i' } },
+        { lastName: { $regex: query, $options: 'i' } },
+        { email: { $regex: query, $options: 'i' } },
+        { username: { $regex: query, $options: 'i' } }
+      ]
+    })
+    .select('-password -emailVerificationToken -passwordResetToken -passwordResetExpires -twoFactorSecret')
+    .limit(20);
+
+    res.json({
+      success: true,
+      data: users
+    });
+  } catch (error) {
+    console.error('Error searching users:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error searching users',
+      error: error.message
+    });
+  }
+});
+
 // GET /api/users/:id - Get user by ID
 router.get('/:id', [
   param('id').isMongoId().withMessage('Invalid user ID'),
@@ -332,38 +405,6 @@ router.delete('/:id', [
   }
 });
 
-// GET /api/users/search/:query - Search users
-router.get('/search/:query', [
-  param('query').isLength({ min: 1 }).withMessage('Search query is required'),
-  validateRequest
-], async (req, res) => {
-  try {
-    const query = req.params.query;
-    const users = await User.find({
-      $or: [
-        { firstName: { $regex: query, $options: 'i' } },
-        { lastName: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } },
-        { username: { $regex: query, $options: 'i' } }
-      ]
-    })
-    .select('-password -emailVerificationToken -passwordResetToken -passwordResetExpires -twoFactorSecret')
-    .limit(20);
-
-    res.json({
-      success: true,
-      data: users
-    });
-  } catch (error) {
-    console.error('Error searching users:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error searching users',
-      error: error.message
-    });
-  }
-});
-
 // POST /api/users/authenticate - Authenticate user (for Auth API)
 router.post('/authenticate', [
   body('emailOrUsername').notEmpty().withMessage('Email or username is required'),
@@ -410,47 +451,6 @@ router.post('/authenticate', [
     res.status(500).json({
       success: false,
       message: 'Authentication failed',
-      error: error.message
-    });
-  }
-});
-
-// GET /api/users/check-exists - Check if user exists (for Auth API)
-router.get('/check-exists', [
-  query('email').optional().isEmail().withMessage('Valid email required'),
-  query('username').optional().isLength({ min: 3 }).withMessage('Username must be at least 3 characters'),
-  validateRequest
-], async (req, res) => {
-  try {
-    const { email, username } = req.query;
-    
-    if (!email && !username) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email or username is required'
-      });
-    }
-
-    const query = {};
-    if (email) query.email = email.toLowerCase();
-    if (username) query.username = username.toLowerCase();
-
-    const existingUser = await User.findOne({
-      $or: [
-        { email: email?.toLowerCase() },
-        { username: username?.toLowerCase() }
-      ]
-    });
-
-    res.json({
-      success: true,
-      exists: !!existingUser
-    });
-  } catch (error) {
-    console.error('Error checking user existence:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error checking user existence',
       error: error.message
     });
   }

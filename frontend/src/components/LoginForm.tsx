@@ -10,9 +10,10 @@ interface LoginFormData {
 
 interface LoginFormProps {
   onLogin: (userData: any) => void
+  onSwitchToRegister: () => void
 }
 
-export default function LoginForm({ onLogin }: LoginFormProps) {
+export default function LoginForm({ onLogin, onSwitchToRegister }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>()
@@ -35,10 +36,10 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
     <div className="card">
       <div className="text-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Login
+          Welcome Back
         </h2>
         <p className="text-gray-600">
-          Please sign in with your credentials
+          Sign in to your Trip Optimizer account
         </p>
       </div>
 
@@ -51,17 +52,17 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Username
+            Username or Email
           </label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               {...register('username', { 
-                required: 'Username is required'
+                required: 'Username or email is required'
               })}
               type="text"
               className="input-field pl-10"
-              placeholder="Enter username"
+              placeholder="Enter username or email"
             />
           </div>
           {errors.username && (
@@ -98,11 +99,15 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
         </button>
       </form>
 
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-        <h4 className="font-medium text-blue-900 mb-2">Demo Credentials</h4>
-        <p className="text-sm text-blue-800">
-          Username: <strong>admin</strong><br />
-          Password: <strong>admin</strong>
+      <div className="mt-6 text-center">
+        <p className="text-gray-600">
+          Don't have an account?{' '}
+          <button
+            onClick={onSwitchToRegister}
+            className="text-blue-600 hover:text-blue-800 font-medium"
+          >
+            Create one here
+          </button>
         </p>
       </div>
     </div>
