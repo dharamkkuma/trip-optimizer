@@ -32,7 +32,7 @@ export const authAPI = {
     lastName: string
   }): Promise<AuthResponse> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -44,15 +44,15 @@ export const authAPI = {
         const data = await response.json()
         
         // Store tokens and user data locally
-        localStorage.setItem('accessToken', data.accessToken)
-        localStorage.setItem('refreshToken', data.refreshToken)
-        localStorage.setItem('user', JSON.stringify(data.user))
+        localStorage.setItem('accessToken', data.data.accessToken)
+        localStorage.setItem('refreshToken', data.data.refreshToken)
+        localStorage.setItem('user', JSON.stringify(data.data.user))
         localStorage.setItem('isLoggedIn', 'true')
         
-        return data
+        return data.data
       } else {
         const error = await response.json()
-        throw new Error(error.detail || 'Registration failed')
+        throw new Error(error.message || 'Registration failed')
       }
     } catch (error) {
       throw new Error((error as Error).message || 'Registration failed')
@@ -62,27 +62,27 @@ export const authAPI = {
   // Login user
   login: async (username: string, password: string): Promise<AuthResponse> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ emailOrUsername: username, password }),
       })
 
       if (response.ok) {
         const data = await response.json()
         
         // Store tokens and user data locally
-        localStorage.setItem('accessToken', data.accessToken)
-        localStorage.setItem('refreshToken', data.refreshToken)
-        localStorage.setItem('user', JSON.stringify(data.user))
+        localStorage.setItem('accessToken', data.data.accessToken)
+        localStorage.setItem('refreshToken', data.data.refreshToken)
+        localStorage.setItem('user', JSON.stringify(data.data.user))
         localStorage.setItem('isLoggedIn', 'true')
         
-        return data
+        return data.data
       } else {
         const error = await response.json()
-        throw new Error(error.detail || 'Login failed')
+        throw new Error(error.message || 'Login failed')
       }
     } catch (error) {
       throw new Error((error as Error).message || 'Login failed')
@@ -97,7 +97,7 @@ export const authAPI = {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -107,13 +107,91 @@ export const authAPI = {
 
       if (response.ok) {
         const data = await response.json()
-        return data.user
+        return data.data.data.user
       } else {
         const error = await response.json()
-        throw new Error(error.detail || 'Failed to get profile')
+        throw new Error(error.message || 'Failed to get profile')
       }
     } catch (error) {
       throw new Error((error as Error).message || 'Failed to get profile')
+    }
+  },
+
+  // Update user profile
+  updateProfile: async (profileData: {
+    firstName: string
+    lastName: string
+    email: string
+  }): Promise<User> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profileData),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        // Update stored user data
+        localStorage.setItem('user', JSON.stringify(data.data.user))
+        return data.data.user
+      } else if (response.status === 403) {
+        // Token expired, try to refresh
+        const refreshToken = localStorage.getItem('refreshToken')
+        if (refreshToken) {
+          try {
+            const refreshResponse = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ refreshToken }),
+            })
+
+            if (refreshResponse.ok) {
+              const refreshData = await refreshResponse.json()
+              localStorage.setItem('accessToken', refreshData.data.accessToken)
+              localStorage.setItem('refreshToken', refreshData.data.refreshToken)
+              localStorage.setItem('user', JSON.stringify(refreshData.data.user))
+              
+              // Retry the original request with new token
+              const retryResponse = await fetch(`${API_BASE_URL}/api/v1/auth/profile`, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': `Bearer ${refreshData.data.accessToken}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(profileData),
+              })
+
+              if (retryResponse.ok) {
+                const retryData = await retryResponse.json()
+                localStorage.setItem('user', JSON.stringify(retryData.data.user))
+                return retryData.data.user
+              }
+            }
+          } catch (refreshError) {
+            console.error('Token refresh failed:', refreshError)
+            // Clear tokens and redirect to login
+            authAPI.clearAuthData()
+            throw new Error('Session expired. Please login again.')
+          }
+        }
+        throw new Error('Session expired. Please login again.')
+      } else {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to update profile')
+      }
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to update profile')
     }
   },
 
@@ -123,7 +201,7 @@ export const authAPI = {
     
     if (token) {
       try {
-        await fetch(`${API_BASE_URL}/auth/logout`, {
+        await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -136,16 +214,23 @@ export const authAPI = {
     }
     
     // Clear local storage regardless of API call success
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    localStorage.removeItem('user')
-    localStorage.removeItem('isLoggedIn')
+    authAPI.clearAuthData()
   },
 
   // Utility functions
   getStoredUser: (): User | null => {
-    const user = localStorage.getItem('user')
-    return user ? JSON.parse(user) : null
+    try {
+      const user = localStorage.getItem('user')
+      if (!user || user === 'undefined' || user === 'null') {
+        return null
+      }
+      return JSON.parse(user)
+    } catch (error) {
+      console.error('Error parsing stored user:', error)
+      // Clear invalid data
+      authAPI.clearAuthData()
+      return null
+    }
   },
 
   getAccessToken: (): string | null => {
@@ -153,7 +238,26 @@ export const authAPI = {
   },
 
   isLoggedIn: (): boolean => {
-    return localStorage.getItem('isLoggedIn') === 'true' && !!localStorage.getItem('accessToken')
+    try {
+      const isLoggedIn = localStorage.getItem('isLoggedIn')
+      const accessToken = localStorage.getItem('accessToken')
+      return isLoggedIn === 'true' && !!accessToken && accessToken !== 'undefined'
+    } catch (error) {
+      console.error('Error checking login status:', error)
+      return false
+    }
+  },
+
+  // Clear all auth data safely
+  clearAuthData: (): void => {
+    try {
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('user')
+      localStorage.removeItem('isLoggedIn')
+    } catch (error) {
+      console.error('Error clearing auth data:', error)
+    }
   }
 }
 

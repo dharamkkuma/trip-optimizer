@@ -155,6 +155,46 @@ const getProfile = async (req, res) => {
   }
 };
 
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { firstName, lastName, email } = req.body;
+    
+    // Update user profile via Database API
+    const updateData = {};
+    if (firstName) updateData.firstName = firstName;
+    if (lastName) updateData.lastName = lastName;
+    if (email) updateData.email = email;
+    
+    const userResponse = await axios.put(`${process.env.DATABASE_API_URL || 'http://localhost:8002'}/api/users/${userId}`, updateData);
+    const user = userResponse.data.data;
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: { user }
+    });
+  } catch (error) {
+    if (error.response) {
+      return res.status(error.response.status).json({
+        success: false,
+        message: error.response.data.message || 'Failed to update profile'
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -162,5 +202,6 @@ module.exports = {
   logout,
   logoutAll,
   verifyToken,
-  getProfile
+  getProfile,
+  updateProfile
 };

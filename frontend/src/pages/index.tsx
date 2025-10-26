@@ -44,6 +44,10 @@ export default function Home() {
     setIsLoggedIn(false)
   }
 
+  const handleUserUpdate = (updatedUser: User) => {
+    setUser(updatedUser)
+  }
+
   return (
     <>
       <Head>
@@ -100,7 +104,7 @@ export default function Home() {
               {/* Main content area */}
               <div className="grid lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-1">
-                  <UserProfile user={user} />
+                  <UserProfile user={user} onUserUpdate={handleUserUpdate} />
                 </div>
                 <div className="lg:col-span-2">
                   <FileUpload />
