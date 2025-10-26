@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -112,7 +113,14 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  lockUntil: Date
+  lockUntil: Date,
+  refreshTokens: [{
+    token: String,
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -131,12 +139,13 @@ userSchema.index({ status: 1 });
 userSchema.index({ createdAt: -1 });
 
 // Pre-save middleware
-userSchema.pre('save', function(next) {
+userSchema.pre('save', async function(next) {
   if (this.isModified('password')) {
-    // Password hashing would be done here in a real application
-    // For now, we'll just ensure it's not empty
-    if (!this.password || this.password.length < 6) {
-      return next(new Error('Password must be at least 6 characters long'));
+    try {
+      const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
+      this.password = await bcrypt.hash(this.password, saltRounds);
+    } catch (error) {
+      return next(error);
     }
   }
   next();
@@ -150,7 +159,12 @@ userSchema.methods.toSafeObject = function() {
   delete userObject.passwordResetToken;
   delete userObject.passwordResetExpires;
   delete userObject.twoFactorSecret;
+  delete userObject.refreshTokens;
   return userObject;
+};
+
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Static methods

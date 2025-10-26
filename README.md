@@ -4,6 +4,39 @@
 
 Trip Optimizer is an intelligent travel management platform that combines document processing, ML-based expense extraction, and AI-powered travel optimization. The system automatically processes travel invoices (hotels and flights), extracts structured data using machine learning, and continuously monitors travel APIs to find better pricing opportunities for your trips.
 
+## Quick Start
+
+### 🚀 Starting the Application
+
+1. **Start all services**:
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Access the application**:
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
+   - Auth API: http://localhost:8003
+   - Database API: http://localhost:8002
+   - Storage API: http://localhost:8001
+
+### 👤 Admin Access
+
+An admin user is **automatically created** when you start the project. Use these credentials to access the admin panel and manage all users:
+
+- **Username**: `admin`
+- **Password**: `Admin123!`
+- **Email**: `admin@tripoptimizer.com`
+- **Role**: Administrator (full user management access)
+
+**Admin Features**:
+- ✅ View and manage all users
+- ✅ Reset user passwords
+- ✅ Change user roles and status
+- ✅ Delete users (except self)
+- ✅ Search and filter users
+- ✅ Access user management interface
+
 ## Tech Stack
 
 | Category | Technology | Purpose |

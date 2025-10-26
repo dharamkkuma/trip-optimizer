@@ -19,6 +19,9 @@ data:
   API_PORT: "8000"
   API_URL: "http://backend-service:8000"
   FRONTEND_URL: "http://frontend-service:3000"
+  AUTH_API_URL: "http://auth-api-service:8003"
+  DATABASE_API_URL: "http://database-api-service:8002"
+  STORAGE_API_URL: "http://storage-api-service:8001"
   PYTHON_ENV: "production"
   JWT_ALGORITHM: "HS256"
   JWT_EXPIRE_MINUTES: "30"
@@ -38,7 +41,10 @@ data:
   FRONTEND_HOST: "0.0.0.0"
   FRONTEND_PORT: "3000"
   FRONTEND_URL: "http://frontend-service:3000"
-  NEXT_PUBLIC_API_URL: "http://backend-service:8000"
+  NEXT_PUBLIC_API_URL: "http://localhost:8000"
+  NEXT_PUBLIC_AUTH_API_URL: "http://localhost:8003"
+  NEXT_PUBLIC_DATABASE_API_URL: "http://localhost:8002"
+  NEXT_PUBLIC_STORAGE_API_URL: "http://localhost:8001"
   NODE_ENV: "production"
   NEXT_PUBLIC_APP_NAME: "Trip Optimizer"
   NEXT_PUBLIC_APP_VERSION: "1.0.0"
@@ -64,6 +70,51 @@ data:
   CORS_ORIGINS: "*"
   CORS_METHODS: "GET,POST,PUT,DELETE"
   CORS_HEADERS: "*"
+
+---
+# ConfigMap for Auth API
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-api-config
+  namespace: trip-optimizer
+data:
+  NODE_ENV: "production"
+  APP_NAME: "Auth API"
+  APP_VERSION: "1.0.0"
+  PORT: "8003"
+  API_HOST: "0.0.0.0"
+  API_PORT: "8003"
+  JWT_ALGORITHM: "HS256"
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  JWT_REFRESH_TOKEN_EXPIRE_DAYS: "7"
+  MONGODB_URL: "mongodb://mongodb-service:27017/trip_optimizer"
+  MONGODB_DATABASE: "trip_optimizer"
+  DATABASE_API_URL: "http://database-api-service:8002"
+  CORS_ORIGIN: "http://localhost:3000,http://frontend-service:3000,http://backend-service:8000,http://storage-api-service:8001,http://database-api-service:8002"
+  BCRYPT_ROUNDS: "12"
+  RATE_LIMIT_WINDOW_MS: "900000"
+  RATE_LIMIT_MAX_REQUESTS: "100"
+  FRONTEND_URL: "http://frontend-service:3000"
+
+---
+# ConfigMap for Database API
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: database-api-config
+  namespace: trip-optimizer
+data:
+  PORT: "8002"
+  NODE_ENV: "production"
+  API_HOST: "0.0.0.0"
+  MONGODB_URI: "mongodb://user:password@mongodb-service:27017/trip_optimizer?authSource=admin"
+  MONGODB_DATABASE: "trip_optimizer"
+  BCRYPT_ROUNDS: "12"
+  RATE_LIMIT_WINDOW_MS: "900000"
+  RATE_LIMIT_MAX_REQUESTS: "100"
+  CORS_ORIGIN: "http://frontend-service:3000,http://backend-service:8000,http://auth-api-service:8003,http://storage-api-service:8001"
+  LOG_LEVEL: "info"
 
 ---
 # Secrets for Backend
@@ -110,6 +161,36 @@ data:
   AWS_ACCESS_KEY_ID: eW91ci1kZXYtYXdzLWFjY2Vzcy1rZXk=  # your-dev-aws-access-key
   AWS_SECRET_ACCESS_KEY: eW91ci1kZXYtYXdzLXNlY3JldC1rZXk=  # your-dev-aws-secret-key
   AWS_SESSION_TOKEN: ""  # Optional: for temporary credentials
+
+---
+# Secrets for Auth API
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auth-api-secrets
+  namespace: trip-optimizer
+type: Opaque
+data:
+  # Base64 encoded values - replace with your actual values
+  # To encode: echo -n "your-secret-value" | base64
+  JWT_SECRET_KEY: ZGV2LXNlY3JldC1rZXktY2hhbmdlLWluLXByb2R1Y3Rpb24=  # dev-secret-key-change-in-production
+  MONGODB_USERNAME: dXNlcg==  # user
+  MONGODB_PASSWORD: cGFzc3dvcmQ=  # password
+
+---
+# Secrets for Database API
+apiVersion: v1
+kind: Secret
+metadata:
+  name: database-api-secrets
+  namespace: trip-optimizer
+type: Opaque
+data:
+  # Base64 encoded values - replace with your actual values
+  # To encode: echo -n "your-secret-value" | base64
+  JWT_SECRET: ZGV2LXNlY3JldC1rZXktY2hhbmdlLWluLXByb2R1Y3Rpb24=  # dev-secret-key-change-in-production
+  MONGODB_USERNAME: dXNlcg==  # user
+  MONGODB_PASSWORD: cGFzc3dvcmQ=  # password
 
 ---
 # Redis Deployment
@@ -273,6 +354,21 @@ spec:
             configMapKeyRef:
               name: backend-config
               key: FRONTEND_URL
+        - name: AUTH_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: AUTH_API_URL
+        - name: DATABASE_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: DATABASE_API_URL
+        - name: STORAGE_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: STORAGE_API_URL
         - name: PYTHON_ENV
           valueFrom:
             configMapKeyRef:
@@ -452,6 +548,255 @@ spec:
             port: 8001
           initialDelaySeconds: 5
           periodSeconds: 5
+---
+# Auth API Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-api
+  namespace: trip-optimizer
+  labels:
+    app: auth-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth-api
+  template:
+    metadata:
+      labels:
+        app: auth-api
+    spec:
+      containers:
+      - name: auth-api
+        image: trip-optimizer-auth-api:latest
+        imagePullPolicy: Never  # Use local image in Minikube
+        ports:
+        - containerPort: 8003
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: NODE_ENV
+        - name: APP_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: APP_NAME
+        - name: APP_VERSION
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: APP_VERSION
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: PORT
+        - name: API_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: API_HOST
+        - name: API_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: API_PORT
+        - name: JWT_ALGORITHM
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: JWT_ALGORITHM
+        - name: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        - name: JWT_REFRESH_TOKEN_EXPIRE_DAYS
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: JWT_REFRESH_TOKEN_EXPIRE_DAYS
+        - name: MONGODB_URL
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: MONGODB_URL
+        - name: MONGODB_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: MONGODB_DATABASE
+        - name: DATABASE_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: DATABASE_API_URL
+        - name: CORS_ORIGIN
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: CORS_ORIGIN
+        - name: BCRYPT_ROUNDS
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: BCRYPT_ROUNDS
+        - name: RATE_LIMIT_WINDOW_MS
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: RATE_LIMIT_WINDOW_MS
+        - name: RATE_LIMIT_MAX_REQUESTS
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: RATE_LIMIT_MAX_REQUESTS
+        - name: FRONTEND_URL
+          valueFrom:
+            configMapKeyRef:
+              name: auth-api-config
+              key: FRONTEND_URL
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: auth-api-secrets
+              key: JWT_SECRET_KEY
+        - name: MONGODB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: auth-api-secrets
+              key: MONGODB_USERNAME
+        - name: MONGODB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: auth-api-secrets
+              key: MONGODB_PASSWORD
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8003
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8003
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+---
+# Database API Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database-api
+  namespace: trip-optimizer
+  labels:
+    app: database-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: database-api
+  template:
+    metadata:
+      labels:
+        app: database-api
+    spec:
+      containers:
+      - name: database-api
+        image: trip-optimizer-database-api:latest
+        imagePullPolicy: Never  # Use local image in Minikube
+        ports:
+        - containerPort: 8002
+        env:
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: database-api-config
+              key: PORT
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: database-api-config
+              key: NODE_ENV
+        - name: API_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: database-api-config
+              key: API_HOST
+        - name: MONGODB_URI
+          valueFrom:
+            configMapKeyRef:
+              name: database-api-config
+              key: MONGODB_URI
+        - name: MONGODB_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: database-api-config
+              key: MONGODB_DATABASE
+        - name: BCRYPT_ROUNDS
+          valueFrom:
+            configMapKeyRef:
+              name: database-api-config
+              key: BCRYPT_ROUNDS
+        - name: RATE_LIMIT_WINDOW_MS
+          valueFrom:
+            configMapKeyRef:
+              name: database-api-config
+              key: RATE_LIMIT_WINDOW_MS
+        - name: RATE_LIMIT_MAX_REQUESTS
+          valueFrom:
+            configMapKeyRef:
+              name: database-api-config
+              key: RATE_LIMIT_MAX_REQUESTS
+        - name: CORS_ORIGIN
+          valueFrom:
+            configMapKeyRef:
+              name: database-api-config
+              key: CORS_ORIGIN
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: database-api-config
+              key: LOG_LEVEL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: database-api-secrets
+              key: JWT_SECRET
+        - name: MONGODB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: database-api-secrets
+              key: MONGODB_USERNAME
+        - name: MONGODB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-api-secrets
+              key: MONGODB_PASSWORD
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8002
+          initialDelaySeconds: 5
+          periodSeconds: 5
         resources:
           requests:
             memory: "256Mi"
@@ -506,6 +851,21 @@ spec:
             configMapKeyRef:
               name: frontend-config
               key: NEXT_PUBLIC_API_URL
+        - name: NEXT_PUBLIC_AUTH_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: frontend-config
+              key: NEXT_PUBLIC_AUTH_API_URL
+        - name: NEXT_PUBLIC_DATABASE_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: frontend-config
+              key: NEXT_PUBLIC_DATABASE_API_URL
+        - name: NEXT_PUBLIC_STORAGE_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: frontend-config
+              key: NEXT_PUBLIC_STORAGE_API_URL
         - name: NODE_ENV
           valueFrom:
             configMapKeyRef:
@@ -638,6 +998,44 @@ spec:
     app: storage-api
 
 ---
+# Auth API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-api-service
+  namespace: trip-optimizer
+  labels:
+    app: auth-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8003
+    targetPort: 8003
+    protocol: TCP
+    name: http
+  selector:
+    app: auth-api
+
+---
+# Database API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: database-api-service
+  namespace: trip-optimizer
+  labels:
+    app: database-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8002
+    targetPort: 8002
+    protocol: TCP
+    name: http
+  selector:
+    app: database-api
+
+---
 # Frontend Service
 apiVersion: v1
 kind: Service
@@ -685,6 +1083,20 @@ spec:
             name: backend-service
             port:
               number: 8000
+      - path: /auth-api
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-api-service
+            port:
+              number: 8003
+      - path: /database-api
+        pathType: Prefix
+        backend:
+          service:
+            name: database-api-service
+            port:
+              number: 8002
       - path: /storage-api
         pathType: Prefix
         backend:

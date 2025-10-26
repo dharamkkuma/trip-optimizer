@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  auth-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trip-optimizer-auth-api
+    ports:
+      - "${API_PORT:-8003}:${API_PORT:-8003}"
+    env_file:
+      - ./env.development
+    depends_on:
+      - mongodb
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${API_PORT:-8003}/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - trip-optimizer-network
+
+  mongodb:
+    image: mongo:7.0
+    container_name: trip-optimizer-mongodb-auth
+    ports:
+      - "27018:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-trip_optimizer}
+    volumes:
+      - mongodb_auth_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - trip-optimizer-network
+
+networks:
+  trip-optimizer-network:
+    driver: bridge
+
+volumes:
+  mongodb_auth_data:
+    driver: local

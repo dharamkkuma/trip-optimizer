@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { User, Mail, Calendar, Save } from 'lucide-react'
+import { authAPI } from '../utils/api'
 
 interface UserProfileProps {
   user: any
+  onUserUpdate?: (updatedUser: any) => void
 }
 
 interface ProfileData {
-  name: string
+  firstName: string
+  lastName: string
   email: string
   preferences: {
     airlines: string[]
@@ -16,13 +19,16 @@ interface ProfileData {
   }
 }
 
-export default function UserProfile({ user }: UserProfileProps) {
+export default function UserProfile({ user, onUserUpdate }: UserProfileProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  
   
   const { register, handleSubmit, formState: { errors } } = useForm<ProfileData>({
     defaultValues: {
-      name: user?.name || '',
+      firstName: user?.firstName || '',
+      lastName: user?.lastName || '',
       email: user?.email || '',
       preferences: {
         airlines: ['American Airlines', 'Delta'],
@@ -34,14 +40,26 @@ export default function UserProfile({ user }: UserProfileProps) {
 
   const onSubmit = async (data: ProfileData) => {
     setIsLoading(true)
+    setError(null)
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      console.log('Profile updated:', data)
+      const updatedUser = await authAPI.updateProfile({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email
+      })
+      
+      console.log('Profile updated:', updatedUser)
+      
+      // Notify parent component of user update
+      if (onUserUpdate) {
+        onUserUpdate(updatedUser)
+      }
+      
       setIsEditing(false)
     } catch (error) {
       console.error('Profile update error:', error)
+      setError(error instanceof Error ? error.message : 'Failed to update profile')
     } finally {
       setIsLoading(false)
     }
@@ -66,18 +84,34 @@ export default function UserProfile({ user }: UserProfileProps) {
 
       {isEditing ? (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Full Name
-            </label>
-            <input
-              {...register('name', { required: 'Name is required' })}
-              type="text"
-              className="input-field"
-            />
-            {errors.name && (
-              <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                First Name
+              </label>
+              <input
+                {...register('firstName', { required: 'First name is required' })}
+                type="text"
+                className="input-field"
+              />
+              {errors.firstName && (
+                <p className="text-red-500 text-sm mt-1">{errors.firstName.message}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Last Name
+              </label>
+              <input
+                {...register('lastName', { required: 'Last name is required' })}
+                type="text"
+                className="input-field"
+              />
+              {errors.lastName && (
+                <p className="text-red-500 text-sm mt-1">{errors.lastName.message}</p>
+              )}
+            </div>
           </div>
 
           <div>
@@ -140,6 +174,12 @@ export default function UserProfile({ user }: UserProfileProps) {
             </label>
           </div>
 
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          )}
+
           <div className="flex space-x-3">
             <button
               type="submit"
@@ -163,7 +203,7 @@ export default function UserProfile({ user }: UserProfileProps) {
           <div className="flex items-center text-gray-700">
             <User className="h-5 w-5 mr-3 text-gray-400" />
             <div>
-              <p className="font-medium">{user?.name}</p>
+              <p className="font-medium">{user?.fullName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim()}</p>
               <p className="text-sm text-gray-500">Full Name</p>
             </div>
           </div>
