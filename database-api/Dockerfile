@@ -10,8 +10,10 @@ COPY package*.json ./
 # Install dependencies (including dev dependencies for development)
 RUN npm install
 
-# Copy source code
+# Copy source code and initialization scripts
 COPY src/ ./src/
+COPY init-admin.js ./
+COPY init-mongo.js ./
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs

@@ -1,5 +1,6 @@
 // API utilities for Trip Optimizer Frontend
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || 'http://localhost:8003'
 
 export interface User {
   _id: string
@@ -32,7 +33,7 @@ export const authAPI = {
     lastName: string
   }): Promise<AuthResponse> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
+      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -62,7 +63,7 @@ export const authAPI = {
   // Login user
   login: async (username: string, password: string): Promise<AuthResponse> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -97,7 +98,7 @@ export const authAPI = {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile`, {
+      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/profile`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -129,7 +130,7 @@ export const authAPI = {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile`, {
+      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/profile`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -148,7 +149,7 @@ export const authAPI = {
         const refreshToken = localStorage.getItem('refreshToken')
         if (refreshToken) {
           try {
-            const refreshResponse = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+            const refreshResponse = await fetch(`${AUTH_API_URL}/api/v1/auth/refresh`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -163,7 +164,7 @@ export const authAPI = {
               localStorage.setItem('user', JSON.stringify(refreshData.data.user))
               
               // Retry the original request with new token
-              const retryResponse = await fetch(`${API_BASE_URL}/api/v1/auth/profile`, {
+              const retryResponse = await fetch(`${AUTH_API_URL}/api/v1/auth/profile`, {
                 method: 'PUT',
                 headers: {
                   'Authorization': `Bearer ${refreshData.data.accessToken}`,
@@ -201,7 +202,7 @@ export const authAPI = {
     
     if (token) {
       try {
-        await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
+        await fetch(`${AUTH_API_URL}/api/v1/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -281,7 +282,7 @@ export const authAPI = {
       if (params?.role) queryParams.append('role', params.role)
       if (params?.status) queryParams.append('status', params.status)
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/admin/users?${queryParams.toString()}`, {
+      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/admin/users?${queryParams.toString()}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -308,7 +309,7 @@ export const authAPI = {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/admin/users/${userId}`, {
+      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/admin/users/${userId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -335,7 +336,7 @@ export const authAPI = {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/admin/users/${userId}`, {
+      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/admin/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -363,7 +364,7 @@ export const authAPI = {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/admin/users/${userId}`, {
+      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/admin/users/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -387,7 +388,7 @@ export const authAPI = {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/admin/users/${userId}/reset-password`, {
+      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/admin/users/${userId}/reset-password`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
