@@ -65,13 +65,22 @@ deploy_with_yaml() {
     kubectl wait --for=condition=available --timeout=120s deployment/redis -n trip-optimizer
     kubectl wait --for=condition=available --timeout=120s deployment/mongodb -n trip-optimizer
     
-    # 6. Set up port forwarding
-    print_status "Setting up port forwarding..."
+    # 6. Set up port forwarding for all services
+    print_status "Setting up port forwarding for all services..."
     pkill -f "kubectl port-forward" 2>/dev/null || true
+    sleep 2  # Wait for processes to be killed
+    
+    # Start all port forwarding in background
     kubectl port-forward service/frontend-service 3000:3000 -n trip-optimizer &
     kubectl port-forward service/backend-service 8000:8000 -n trip-optimizer &
+    kubectl port-forward service/auth-api-service 8003:8003 -n trip-optimizer &
+    kubectl port-forward service/database-api-service 8002:8002 -n trip-optimizer &
+    kubectl port-forward service/storage-api-service 8001:8001 -n trip-optimizer &
     kubectl port-forward service/redis-service 6379:6379 -n trip-optimizer &
     kubectl port-forward service/mongodb-service 27017:27017 -n trip-optimizer &
+    
+    # Wait a moment for port forwarding to establish
+    sleep 3
     
     # 7. Show status
     print_success "🎉 Deployment completed successfully!"
@@ -79,9 +88,17 @@ deploy_with_yaml() {
     print_status "Your complete application stack is now running:"
     echo "  🌐 Frontend: http://localhost:3000"
     echo "  🔧 Backend API: http://localhost:8000"
-    echo "  ❤️  Health Check: http://localhost:8000/health"
+    echo "  🔐 Auth API: http://localhost:8003"
+    echo "  🗄️  Database API: http://localhost:8002"
+    echo "  📁 Storage API: http://localhost:8001"
     echo "  🔴 Redis: localhost:6379"
     echo "  🍃 MongoDB: localhost:27017"
+    echo ""
+    print_status "Health Check URLs:"
+    echo "  Backend: http://localhost:8000/health"
+    echo "  Auth API: http://localhost:8003/api/v1/health"
+    echo "  Database API: http://localhost:8002/api/health"
+    echo "  Storage API: http://localhost:8001/health"
     echo ""
     print_status "All services are in the 'trip-optimizer' namespace:"
     echo "  kubectl get all -n trip-optimizer"
@@ -125,6 +142,40 @@ stop_deployment() {
     print_success "✅ Cleanup completed!"
 }
 
+# Function to restart port forwarding
+restart_port_forwarding() {
+    print_status "🔄 Restarting port forwarding..."
+    echo ""
+    
+    # Stop existing port forwarding
+    print_status "Stopping existing port forwarding..."
+    pkill -f "kubectl port-forward" 2>/dev/null || true
+    sleep 2
+    
+    # Start all port forwarding
+    print_status "Starting port forwarding for all services..."
+    kubectl port-forward service/frontend-service 3000:3000 -n trip-optimizer &
+    kubectl port-forward service/backend-service 8000:8000 -n trip-optimizer &
+    kubectl port-forward service/auth-api-service 8003:8003 -n trip-optimizer &
+    kubectl port-forward service/database-api-service 8002:8002 -n trip-optimizer &
+    kubectl port-forward service/storage-api-service 8001:8001 -n trip-optimizer &
+    kubectl port-forward service/redis-service 6379:6379 -n trip-optimizer &
+    kubectl port-forward service/mongodb-service 27017:27017 -n trip-optimizer &
+    
+    sleep 3
+    
+    print_success "✅ Port forwarding restarted!"
+    echo ""
+    print_status "All services accessible at:"
+    echo "  🌐 Frontend: http://localhost:3000"
+    echo "  🔧 Backend API: http://localhost:8000"
+    echo "  🔐 Auth API: http://localhost:8003"
+    echo "  🗄️  Database API: http://localhost:8002"
+    echo "  📁 Storage API: http://localhost:8001"
+    echo "  🔴 Redis: localhost:6379"
+    echo "  🍃 MongoDB: localhost:27017"
+}
+
 # Function to show status
 show_status() {
     print_status "📊 Current Status:"
@@ -159,14 +210,18 @@ case "${1:-deploy}" in
         sleep 2
         deploy_with_yaml
         ;;
+    "port-forward"|"pf")
+        restart_port_forwarding
+        ;;
     *)
-        echo "Usage: $0 [deploy|stop|status|restart]"
+        echo "Usage: $0 [deploy|stop|status|restart|port-forward]"
         echo ""
         echo "Commands:"
         echo "  deploy (default) - Build images and deploy with YAML"
         echo "  stop            - Stop all services and cleanup"
         echo "  status          - Show current deployment status"
         echo "  restart         - Stop and redeploy everything"
+        echo "  port-forward    - Restart port forwarding only"
         echo ""
         echo "Examples:"
         echo "  $0              # Deploy everything with YAML"
@@ -174,9 +229,11 @@ case "${1:-deploy}" in
         echo "  $0 stop         # Stop everything"
         echo "  $0 status       # Show status"
         echo "  $0 restart      # Restart everything"
+        echo "  $0 port-forward # Restart port forwarding only"
         echo ""
         echo "This is the PROPER way to deploy to Kubernetes!"
         echo "Uses a single YAML file with all resources defined."
+        echo "Automatically sets up port forwarding for all services."
         exit 1
         ;;
 esac

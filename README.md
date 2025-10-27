@@ -4,38 +4,9 @@
 
 Trip Optimizer is an intelligent travel management platform that combines document processing, ML-based expense extraction, and AI-powered travel optimization. The system automatically processes travel invoices (hotels and flights), extracts structured data using machine learning, and continuously monitors travel APIs to find better pricing opportunities for your trips.
 
-## Quick Start
+## System Architecture
 
-### 🚀 Starting the Application
-
-1. **Start all services**:
-   ```bash
-   docker-compose up -d
-   ```
-
-2. **Access the application**:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - Auth API: http://localhost:8003
-   - Database API: http://localhost:8002
-   - Storage API: http://localhost:8001
-
-### 👤 Admin Access
-
-An admin user is **automatically created** when you start the project. Use these credentials to access the admin panel and manage all users:
-
-- **Username**: `admin`
-- **Password**: `Admin123!`
-- **Email**: `admin@tripoptimizer.com`
-- **Role**: Administrator (full user management access)
-
-**Admin Features**:
-- ✅ View and manage all users
-- ✅ Reset user passwords
-- ✅ Change user roles and status
-- ✅ Delete users (except self)
-- ✅ Search and filter users
-- ✅ Access user management interface
+![System Architecture](assets/architecture.png)
 
 ## Tech Stack
 
@@ -58,10 +29,6 @@ An admin user is **automatically created** when you start the project. Use these
 | | Atlas Search | Autocomplete capabilities |
 | **Automation** | K8s Cron Jobs | Scheduled tasks |
 | | Periodic model fine-tuning | ML model updates |
-
-## System Architecture
-
-![System Architecture](assets/architecture.png)
 
 ## Features
 
@@ -92,3 +59,34 @@ Machine learning models extract structured data:
 - **🧠 Intelligent Retrieval**: RAG-powered responses with source citations
 - **🗺️ Trip Planning Assistance**: General travel advice and recommendations
 - **📈 Expense Analysis**: Query spending patterns and trip costs
+
+## Quick Start
+
+### Application Commands
+
+| Command | Description | What It Does |
+|---------|-------------|--------------|
+| `./deploy-yaml.sh` | **Start Everything** | Builds images, deploys to Kubernetes, sets up port forwarding |
+| `./deploy-yaml.sh status` | **Check Status** | Shows all pods, services, and port forwarding status |
+| `./deploy-yaml.sh port-forward` | **Fix Connections** | Restarts port forwarding if APIs are not accessible |
+| `./deploy-yaml.sh stop` | **Stop Everything** | Stops all services and cleans up |
+| `./deploy-yaml.sh restart` | **Restart Everything** | Stops and redeploys everything |
+
+## 🌐 Access URLs
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| **Frontend** | http://localhost:3000 | Main application |
+| **Backend API** | http://localhost:8000 | Core API |
+| **Auth API** | http://localhost:8003 | Authentication |
+| **Database API** | http://localhost:8002 | Data management |
+| **Storage API** | http://localhost:8001 | File storage |
+
+## 👤 Admin Access
+
+| Field | Value |
+|-------|-------|
+| **Username** | `admin` |
+| **Password** | `Admin123!` |
+| **Email** | `admin@tripoptimizer.com` |
+| **Role** | Administrator |
