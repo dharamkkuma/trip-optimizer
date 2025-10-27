@@ -13,6 +13,8 @@ export interface User {
   createdAt: string
   updatedAt: string
   fullName: string
+  phone?: string
+  bio?: string
 }
 
 export interface AuthResponse {
@@ -199,6 +201,7 @@ export const authAPI = {
   // Logout user
   logout: async (): Promise<void> => {
     const token = localStorage.getItem('accessToken')
+    const refreshToken = localStorage.getItem('refreshToken')
     
     if (token) {
       try {
@@ -208,6 +211,7 @@ export const authAPI = {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({ refreshToken }),
         })
       } catch (error) {
         console.error('Logout request failed:', error)
@@ -381,6 +385,43 @@ export const authAPI = {
     }
   },
 
+  // Admin function to create user without auto-login
+  createUser: async (userData: {
+    username: string
+    email: string
+    password: string
+    firstName: string
+    lastName: string
+    role?: string
+  }): Promise<User> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      // Use the regular register endpoint but don't store the response tokens
+      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        // Return the user data without storing tokens (to avoid auto-login)
+        return data.data.user
+      } else {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to create user')
+      }
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to create user')
+    }
+  },
+
   resetUserPassword: async (userId: string, newPassword: string): Promise<void> => {
     const token = localStorage.getItem('accessToken')
     if (!token) {
@@ -398,8 +439,14 @@ export const authAPI = {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to reset password')
+        const errorText = await response.text()
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { message: errorText }
+        }
+        throw new Error(errorData.message || 'Failed to reset password')
       }
     } catch (error) {
       throw new Error((error as Error).message || 'Failed to reset password')
