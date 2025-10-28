@@ -143,7 +143,10 @@ export default function Dashboard({ user, onSectionChange }: DashboardProps) {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+        <div 
+          onClick={() => onSectionChange('trips')}
+          className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
+        >
           <div className="flex items-center">
             <div className="p-2 bg-blue-100 rounded-lg">
               <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,7 +202,10 @@ export default function Dashboard({ user, onSectionChange }: DashboardProps) {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+        <div 
+          onClick={() => onSectionChange('invoices')}
+          className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
+        >
           <div className="flex items-center">
             <div className="p-2 bg-purple-100 rounded-lg">
               <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -207,7 +213,7 @@ export default function Dashboard({ user, onSectionChange }: DashboardProps) {
               </svg>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Documents</p>
+              <p className="text-sm font-medium text-gray-600">Invoices</p>
               <p className="text-2xl font-bold text-gray-900">{stats.documentsProcessed}</p>
             </div>
           </div>

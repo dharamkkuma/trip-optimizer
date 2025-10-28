@@ -12,6 +12,7 @@ import TripTimeline from './TripTimeline'
 import AdminDashboard from './AdminDashboard'
 import UserProfile from './UserProfile'
 import AdminUserManagement from './AdminUserManagement'
+import InvoiceList from './InvoiceList'
 
 interface DashboardLayoutProps {
   user: User
@@ -31,6 +32,7 @@ type ActiveSection =
   | 'admin'
   | 'profile'
   | 'user-management'
+  | 'invoices'
 
 export default function DashboardLayout({ user, onUserUpdate, onLogout }: DashboardLayoutProps) {
   const [activeSection, setActiveSection] = useState<ActiveSection>('dashboard')
@@ -69,6 +71,8 @@ export default function DashboardLayout({ user, onUserUpdate, onLogout }: Dashbo
         return <UserProfile user={user} onUserUpdate={onUserUpdate} />
       case 'user-management':
         return <AdminUserManagement user={user} />
+      case 'invoices':
+        return <InvoiceList user={user} />
       default:
         return <Dashboard user={user} onSectionChange={(section) => setActiveSection(section as ActiveSection)} />
     }

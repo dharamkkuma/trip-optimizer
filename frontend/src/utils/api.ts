@@ -861,6 +861,35 @@ export const invoicesAPI = {
     }
   },
 
+  // Update an invoice
+  update: async (id: string, invoiceData: Partial<Invoice>): Promise<Invoice> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(invoiceData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to update invoice')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to update invoice')
+    }
+  },
+
   // Start invoice processing
   startProcessing: async (id: string): Promise<Invoice> => {
     const token = localStorage.getItem('accessToken')

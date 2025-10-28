@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { User, tripsAPI, Trip } from '../utils/api'
+import { User, tripsAPI, invoicesAPI, Trip, Invoice } from '../utils/api'
 
 interface TripManagementProps {
   user: User
@@ -59,6 +59,9 @@ export default function TripManagement({ user }: TripManagementProps) {
   })
   const [tagInput, setTagInput] = useState('')
   const [editTagInput, setEditTagInput] = useState('')
+  const [alert, setAlert] = useState<{ type: 'success' | 'error', message: string } | null>(null)
+  const [tripInvoices, setTripInvoices] = useState<Invoice[]>([])
+  const [loadingInvoices, setLoadingInvoices] = useState(false)
 
   useEffect(() => {
     loadTrips()
@@ -104,8 +107,12 @@ export default function TripManagement({ user }: TripManagementProps) {
       await loadTrips()
       setShowCreateModal(false)
       resetCreateForm()
+      setAlert({ type: 'success', message: 'Trip created successfully!' })
+      setTimeout(() => setAlert(null), 3000)
     } catch (error) {
       console.error('Error creating trip:', error)
+      setAlert({ type: 'error', message: 'Failed to create trip. Please try again.' })
+      setTimeout(() => setAlert(null), 3000)
     }
   }
 
@@ -116,8 +123,12 @@ export default function TripManagement({ user }: TripManagementProps) {
       await loadTrips()
       setShowEditModal(false)
       setSelectedTrip(null)
+      setAlert({ type: 'success', message: 'Trip updated successfully!' })
+      setTimeout(() => setAlert(null), 3000)
     } catch (error) {
       console.error('Error updating trip:', error)
+      setAlert({ type: 'error', message: 'Failed to update trip. Please try again.' })
+      setTimeout(() => setAlert(null), 3000)
     }
   }
 
@@ -138,7 +149,10 @@ export default function TripManagement({ user }: TripManagementProps) {
       id: trip._id,
       title: trip.title,
       destination: trip.destination,
-      dates: trip.dates,
+      dates: {
+        startDate: trip.dates.startDate.split('T')[0], // Convert to YYYY-MM-DD format
+        endDate: trip.dates.endDate.split('T')[0] // Convert to YYYY-MM-DD format
+      },
       budget: trip.budget,
       travelers: trip.travelers,
       tags: trip.tags,
@@ -147,9 +161,23 @@ export default function TripManagement({ user }: TripManagementProps) {
     setShowEditModal(true)
   }
 
-  const viewTrip = (trip: Trip) => {
+  const loadTripInvoices = async (tripId: string) => {
+    try {
+      setLoadingInvoices(true)
+      const response = await invoicesAPI.getAll({ tripId })
+      setTripInvoices(response.data || [])
+    } catch (error) {
+      console.error('Error loading trip invoices:', error)
+      setTripInvoices([])
+    } finally {
+      setLoadingInvoices(false)
+    }
+  }
+
+  const viewTrip = async (trip: Trip) => {
     setSelectedTrip(trip)
     setShowViewModal(true)
+    await loadTripInvoices(trip._id)
   }
 
   const resetCreateForm = () => {
@@ -206,6 +234,26 @@ export default function TripManagement({ user }: TripManagementProps) {
 
   return (
     <div className="space-y-6">
+      {/* Alert */}
+      {alert && (
+        <div className={`p-4 rounded-lg ${
+          alert.type === 'success' 
+            ? 'bg-green-100 border border-green-400 text-green-700' 
+            : 'bg-red-100 border border-red-400 text-red-700'
+        }`}>
+          <div className="flex items-center">
+            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              {alert.type === 'success' ? (
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              ) : (
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              )}
+            </svg>
+            {alert.message}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
         <div className="flex items-center justify-between">
@@ -722,6 +770,65 @@ export default function TripManagement({ user }: TripManagementProps) {
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${selectedTrip.isPublic ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                   {selectedTrip.isPublic ? 'Yes' : 'No'}
                 </span>
+              </div>
+
+              {/* Invoices Section */}
+              <div className="mt-6">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Associated Invoices</h4>
+                {loadingInvoices ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : tripInvoices.length > 0 ? (
+                  <div className="space-y-2">
+                    {tripInvoices.map((invoice) => (
+                      <div key={invoice._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-shrink-0">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{invoice.invoiceNumber}</p>
+                            <p className="text-xs text-gray-500">{invoice.originalFileName}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            invoice.documentStatus === 'uploaded' ? 'bg-blue-100 text-blue-800' :
+                            invoice.documentStatus === 'processing' ? 'bg-yellow-100 text-yellow-800' :
+                            invoice.documentStatus === 'parsed' ? 'bg-purple-100 text-purple-800' :
+                            invoice.documentStatus === 'verified' ? 'bg-green-100 text-green-800' :
+                            invoice.documentStatus === 'approved' ? 'bg-green-100 text-green-800' :
+                            invoice.documentStatus === 'rejected' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {invoice.documentStatus}
+                          </span>
+                          {invoice.documentStatus === 'rejected' && (
+                            <button
+                              onClick={() => {
+                                // Add retry functionality here
+                                console.log('Retry invoice:', invoice._id)
+                              }}
+                              className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            >
+                              Retry
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <svg className="mx-auto h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p className="text-sm text-gray-500 mt-2">No invoices uploaded for this trip</p>
+                  </div>
+                )}
               </div>
             </div>
             
