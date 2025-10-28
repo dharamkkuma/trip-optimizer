@@ -22,19 +22,8 @@ const navigationItems = [
     badge: null
   },
   {
-    id: 'trips',
-    name: 'My Trips',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-    badge: '3'
-  },
-  {
     id: 'upload',
-    name: 'Upload Documents',
+    name: 'Upload Invoices',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -43,14 +32,24 @@ const navigationItems = [
     badge: null
   },
   {
-    id: 'expenses',
-    name: 'Expense Logging',
+    id: 'optimizations',
+    name: 'Trip Optimizations',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
       </svg>
     ),
-    badge: null
+    badge: '1'
+  },
+  {
+    id: 'notifications',
+    name: 'Trip Notifications',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.5-1.5a7 7 0 01-2-4.5V9a5 5 0 00-10 0v2a7 7 0 01-2 4.5L3 17h5m7 0a3 3 0 11-6 0m6 0H9" />
+      </svg>
+    ),
+    badge: '5'
   },
   {
     id: 'chat',
@@ -61,36 +60,6 @@ const navigationItems = [
       </svg>
     ),
     badge: '2'
-  },
-  {
-    id: 'notifications',
-    name: 'Notifications',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.5-1.5a7 7 0 01-2-4.5V9a5 5 0 00-10 0v2a7 7 0 01-2 4.5L3 17h5m7 0a3 3 0 11-6 0m6 0H9" />
-      </svg>
-    ),
-    badge: '5'
-  },
-  {
-    id: 'optimizations',
-    name: 'Optimizations',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-    ),
-    badge: '1'
-  },
-  {
-    id: 'timeline',
-    name: 'Trip Timeline',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    badge: null
   },
   {
     id: 'profile',

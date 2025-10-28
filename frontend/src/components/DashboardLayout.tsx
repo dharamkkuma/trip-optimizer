@@ -48,7 +48,7 @@ export default function DashboardLayout({ user, onUserUpdate, onLogout }: Dashbo
   const renderContent = () => {
     switch (activeSection) {
       case 'dashboard':
-        return <Dashboard user={user} />
+        return <Dashboard user={user} onSectionChange={(section) => setActiveSection(section as ActiveSection)} />
       case 'trips':
         return <TripManagement user={user} />
       case 'upload':
@@ -70,7 +70,7 @@ export default function DashboardLayout({ user, onUserUpdate, onLogout }: Dashbo
       case 'user-management':
         return <AdminUserManagement user={user} />
       default:
-        return <Dashboard user={user} />
+        return <Dashboard user={user} onSectionChange={(section) => setActiveSection(section as ActiveSection)} />
     }
   }
 

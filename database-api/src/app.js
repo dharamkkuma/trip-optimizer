@@ -9,6 +9,13 @@ require('dotenv').config();
 const connectDB = require('./config/database');
 const userRoutes = require('./routes/userRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const invoiceRoutes = require('./routes/invoiceRoutes');
+const tripRoutes = require('./routes/tripRoutes');
+
+// Import models to register them
+require('./models/User');
+require('./models/Trip');
+require('./models/Invoice');
 
 const app = express();
 
@@ -59,6 +66,8 @@ if (process.env.NODE_ENV === 'development') {
 // Routes
 app.use('/api/health', healthRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/trips', tripRoutes);
+app.use('/api/invoices', invoiceRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

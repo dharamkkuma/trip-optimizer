@@ -1,12 +1,12 @@
-import { useState, useRef } from 'react'
-import { User } from '../utils/api'
+import { useState, useRef, useEffect } from 'react'
+import { User, invoicesAPI, tripsAPI, Invoice, Trip } from '../utils/api'
 
 interface DocumentUploadProps {
   user: User
 }
 
 interface UploadProgress {
-  documentId: string
+  invoiceId?: string
   filename: string
   progress: number
   status: 'uploading' | 'processing' | 'completed' | 'error'
@@ -16,13 +16,33 @@ interface UploadProgress {
     status: 'pending' | 'in_progress' | 'completed' | 'error'
     completedAt?: string
   }>
+  invoice?: Invoice
+  error?: string
 }
 
 export default function DocumentUpload({ user }: DocumentUploadProps) {
   const [dragActive, setDragActive] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploads, setUploads] = useState<UploadProgress[]>([])
+  const [trips, setTrips] = useState<Trip[]>([])
+  const [selectedTripId, setSelectedTripId] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Load trips on component mount
+  useEffect(() => {
+    const loadTrips = async () => {
+      try {
+        const response = await tripsAPI.getAll()
+        setTrips(response.data)
+        if (response.data.length > 0) {
+          setSelectedTripId(response.data[0]._id)
+        }
+      } catch (error) {
+        console.error('Failed to load trips:', error)
+      }
+    }
+    loadTrips()
+  }, [])
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -51,6 +71,11 @@ export default function DocumentUpload({ user }: DocumentUploadProps) {
   }
 
   const handleFiles = async (files: FileList) => {
+    if (!selectedTripId) {
+      alert('Please select a trip first')
+      return
+    }
+
     setUploading(true)
     
     for (let i = 0; i < files.length; i++) {
@@ -68,77 +93,159 @@ export default function DocumentUpload({ user }: DocumentUploadProps) {
         continue
       }
 
-      const documentId = `doc_${Date.now()}_${i}`
+      const uploadId = `upload_${Date.now()}_${i}`
       
       // Create initial upload progress
       const uploadProgress: UploadProgress = {
-        documentId,
         filename: file.name,
         progress: 0,
         status: 'uploading',
         currentStep: 'uploading',
         steps: [
-          { step: 'virus_scan', status: 'pending' },
-          { step: 'file_validation', status: 'pending' },
-          { step: 'extracting_data', status: 'pending' },
-          { step: 'classification', status: 'pending' },
-          { step: 'embedding_generation', status: 'pending' }
+          { step: 'upload', status: 'pending' },
+          { step: 'create_invoice', status: 'pending' },
+          { step: 'start_processing', status: 'pending' },
+          { step: 'extract_data', status: 'pending' },
+          { step: 'validate_data', status: 'pending' },
+          { step: 'complete_processing', status: 'pending' }
         ]
       }
 
       setUploads(prev => [...prev, uploadProgress])
 
-      // Simulate upload and processing
-      await simulateUpload(uploadProgress)
+      // Process the file through invoice workflow
+      await processInvoiceFile(file, uploadProgress, file.name)
     }
     
     setUploading(false)
   }
 
-  const simulateUpload = async (uploadProgress: UploadProgress) => {
-    const steps = [
-      { name: 'uploading', duration: 1000 },
-      { name: 'virus_scan', duration: 2000 },
-      { name: 'file_validation', duration: 1500 },
-      { name: 'extracting_data', duration: 3000 },
-      { name: 'classification', duration: 2000 },
-      { name: 'embedding_generation', duration: 2500 }
-    ]
+  const processInvoiceFile = async (file: File, uploadProgress: UploadProgress, filename: string) => {
+    try {
+      // Step 1: Upload file (simulate file upload to storage)
+      updateUploadProgress(filename, 'upload', 'in_progress', 16)
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate upload time
+      updateUploadProgress(filename, 'upload', 'completed', 16)
 
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i]
+      // Step 2: Create invoice record
+      updateUploadProgress(filename, 'create_invoice', 'in_progress', 32)
       
-      // Update current step
+      const invoiceData = {
+        invoiceNumber: `INV-${Date.now()}`,
+        invoiceDate: new Date().toISOString().split('T')[0],
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+        originalFileName: file.name,
+        filePath: `/uploads/${file.name}`,
+        fileSize: file.size,
+        fileType: file.type.split('/')[1],
+        mimeType: file.type,
+        tripId: selectedTripId,
+        category: 'other',
+        tags: ['uploaded', 'pdf']
+      }
+
+      const invoice = await invoicesAPI.create(invoiceData)
+      updateUploadProgress(filename, 'create_invoice', 'completed', 32, invoice)
+
+      // Step 3: Start processing
+      updateUploadProgress(filename, 'start_processing', 'in_progress', 48)
+      const processingInvoice = await invoicesAPI.startProcessing(invoice._id)
+      updateUploadProgress(filename, 'start_processing', 'completed', 48, processingInvoice)
+
+      // Step 4: Extract data (simulate AI processing)
+      updateUploadProgress(filename, 'extract_data', 'in_progress', 64)
+      await new Promise(resolve => setTimeout(resolve, 2000)) // Simulate processing time
+
+      // Generate dummy parsed data (replace with actual AI processing later)
+      const dummyParsedData = {
+        vendor: {
+          name: 'Sample Vendor Inc.',
+          address: {
+            street: '123 Business St',
+            city: 'Business City',
+            state: 'BC',
+            zipCode: '12345',
+            country: 'USA'
+          },
+          contact: {
+            email: 'vendor@example.com',
+            phone: '+1-555-0123'
+          },
+          taxId: 'TAX123456789'
+        },
+        customer: {
+          name: user.fullName || `${user.firstName} ${user.lastName}`,
+          address: {
+            street: '456 Customer Ave',
+            city: 'Customer City',
+            state: 'CC',
+            zipCode: '54321',
+            country: 'USA'
+          },
+          contact: {
+            email: user.email,
+            phone: '+1-555-0456'
+          }
+        },
+        financial: {
+          subtotal: Math.floor(Math.random() * 1000) + 100,
+          taxAmount: 0,
+          totalAmount: 0,
+          currency: 'USD',
+          taxRate: 0,
+          discountAmount: 0
+        },
+        lineItems: [
+          {
+            description: 'Travel Service',
+            quantity: 1,
+            unitPrice: 0,
+            totalPrice: 0,
+            taxRate: 0
+          }
+        ]
+      }
+
+      // Calculate totals
+      dummyParsedData.financial.totalAmount = dummyParsedData.financial.subtotal + dummyParsedData.financial.taxAmount - dummyParsedData.financial.discountAmount
+      dummyParsedData.lineItems[0].unitPrice = dummyParsedData.financial.subtotal
+      dummyParsedData.lineItems[0].totalPrice = dummyParsedData.financial.subtotal
+
+      updateUploadProgress(filename, 'extract_data', 'completed', 64)
+
+      // Step 5: Validate data
+      updateUploadProgress(filename, 'validate_data', 'in_progress', 80)
+      const validationResult = await invoicesAPI.validate(dummyParsedData)
+      updateUploadProgress(filename, 'validate_data', 'completed', 80)
+
+      // Step 6: Complete processing
+      updateUploadProgress(filename, 'complete_processing', 'in_progress', 96)
+      const finalInvoice = await invoicesAPI.completeProcessing(
+        invoice._id, 
+        dummyParsedData, 
+        validationResult.confidenceScore || 85
+      )
+      updateUploadProgress(filename, 'complete_processing', 'completed', 100, finalInvoice)
+
+      // Mark as completed
       setUploads(prev => prev.map(upload => 
-        upload.documentId === uploadProgress.documentId 
-          ? { 
-              ...upload, 
-              currentStep: step.name,
-              progress: ((i + 1) / steps.length) * 100,
-              steps: upload.steps.map((s, index) => 
-                index === i 
-                  ? { ...s, status: 'in_progress' }
-                  : index < i 
-                    ? { ...s, status: 'completed', completedAt: new Date().toISOString() }
-                    : s
-              )
-            }
+        upload.filename === uploadProgress.filename 
+          ? { ...upload, status: 'completed', progress: 100 }
           : upload
       ))
 
-      // Wait for step duration
-      await new Promise(resolve => setTimeout(resolve, step.duration))
-
-      // Mark step as completed
+    } catch (error) {
+      console.error('Error processing invoice:', error)
       setUploads(prev => prev.map(upload => 
-        upload.documentId === uploadProgress.documentId 
+        upload.filename === uploadProgress.filename 
           ? { 
               ...upload, 
-              status: i === steps.length - 1 ? 'completed' : 'processing',
-              steps: upload.steps.map((s, index) => 
-                index === i 
-                  ? { ...s, status: 'completed', completedAt: new Date().toISOString() }
-                  : s
+              status: 'error', 
+              error: (error as Error).message,
+              steps: upload.steps.map(step => 
+                step.status === 'in_progress' 
+                  ? { ...step, status: 'error' }
+                  : step
               )
             }
           : upload
@@ -146,8 +253,33 @@ export default function DocumentUpload({ user }: DocumentUploadProps) {
     }
   }
 
-  const removeUpload = (documentId: string) => {
-    setUploads(prev => prev.filter(upload => upload.documentId !== documentId))
+  const updateUploadProgress = (uploadId: string, stepName: string, status: 'in_progress' | 'completed' | 'error', progress: number, invoice?: Invoice) => {
+    setUploads(prev => prev.map(upload => {
+      if (upload.filename === uploadId) { // Match by filename directly
+        const updatedSteps = upload.steps.map(step => 
+          step.step === stepName 
+            ? { 
+                ...step, 
+                status, 
+                completedAt: status === 'completed' ? new Date().toISOString() : undefined 
+              }
+            : step
+        )
+        
+        return {
+          ...upload,
+          progress,
+          currentStep: stepName,
+          invoice: invoice || upload.invoice,
+          steps: updatedSteps
+        }
+      }
+      return upload
+    }))
+  }
+
+  const removeUpload = (filename: string) => {
+    setUploads(prev => prev.filter(upload => upload.filename !== filename))
   }
 
   return (
@@ -158,6 +290,34 @@ export default function DocumentUpload({ user }: DocumentUploadProps) {
         <p className="text-gray-600">
           Upload your travel documents (PDF invoices, receipts, booking confirmations) for AI processing and optimization.
         </p>
+      </div>
+
+      {/* Trip Selection */}
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Trip</h3>
+        <div className="flex items-center space-x-4">
+          <label htmlFor="trip-select" className="text-sm font-medium text-gray-700">
+            Choose a trip for this invoice:
+          </label>
+          <select
+            id="trip-select"
+            value={selectedTripId}
+            onChange={(e) => setSelectedTripId(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Select a trip...</option>
+            {trips.map((trip) => (
+              <option key={trip._id} value={trip._id}>
+                {trip.title} - {trip.destination.city}, {trip.destination.country}
+              </option>
+            ))}
+          </select>
+        </div>
+        {!selectedTripId && (
+          <p className="mt-2 text-sm text-red-600">
+            Please select a trip before uploading documents.
+          </p>
+        )}
       </div>
 
       {/* Upload Area */}
@@ -211,7 +371,7 @@ export default function DocumentUpload({ user }: DocumentUploadProps) {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Progress</h3>
           <div className="space-y-4">
             {uploads.map((upload) => (
-              <div key={upload.documentId} className="border border-gray-200 rounded-lg p-4">
+              <div key={upload.filename} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
                     <div className={`w-3 h-3 rounded-full ${
@@ -220,11 +380,16 @@ export default function DocumentUpload({ user }: DocumentUploadProps) {
                       'bg-blue-400 animate-pulse'
                     }`}></div>
                     <span className="font-medium text-gray-900">{upload.filename}</span>
+                    {upload.invoice && (
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        Invoice #{upload.invoice.invoiceNumber}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="text-sm text-gray-600">{Math.round(upload.progress)}%</span>
                     <button
-                      onClick={() => removeUpload(upload.documentId)}
+                      onClick={() => removeUpload(upload.filename)}
                       className="text-gray-400 hover:text-gray-600"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -233,6 +398,36 @@ export default function DocumentUpload({ user }: DocumentUploadProps) {
                     </button>
                   </div>
                 </div>
+
+                {/* Error Display */}
+                {upload.error && (
+                  <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-sm text-red-800">
+                      <strong>Error:</strong> {upload.error}
+                    </p>
+                  </div>
+                )}
+
+                {/* Invoice Details */}
+                {upload.invoice && upload.status === 'completed' && (
+                  <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-md">
+                    <h4 className="text-sm font-medium text-green-800 mb-2">Extracted Invoice Data:</h4>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-green-700">
+                      <div>
+                        <strong>Vendor:</strong> {upload.invoice.parsedData?.vendor?.name || 'N/A'}
+                      </div>
+                      <div>
+                        <strong>Total:</strong> ${upload.invoice.parsedData?.financial?.totalAmount || 0}
+                      </div>
+                      <div>
+                        <strong>Status:</strong> {upload.invoice.documentStatus}
+                      </div>
+                      <div>
+                        <strong>Confidence:</strong> {upload.invoice.processingMetadata?.confidenceScore || 0}%
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Progress Bar */}
                 <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
@@ -293,23 +488,27 @@ export default function DocumentUpload({ user }: DocumentUploadProps) {
 
       {/* Upload Tips */}
       <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
-        <h3 className="text-lg font-semibold text-blue-900 mb-3">💡 Upload Tips</h3>
+        <h3 className="text-lg font-semibold text-blue-900 mb-3">💡 Invoice Processing Tips</h3>
         <ul className="space-y-2 text-blue-800">
           <li className="flex items-start space-x-2">
             <span className="text-blue-600 mt-1">•</span>
-            <span>Ensure documents are clear and readable for better AI processing</span>
+            <span>Upload PDF invoices for automatic data extraction and processing</span>
           </li>
           <li className="flex items-start space-x-2">
             <span className="text-blue-600 mt-1">•</span>
-            <span>Supported formats: PDF invoices, JPG/PNG receipts, booking confirmations</span>
+            <span>AI will extract vendor info, amounts, dates, and line items automatically</span>
           </li>
           <li className="flex items-start space-x-2">
             <span className="text-blue-600 mt-1">•</span>
-            <span>Documents are automatically scanned for viruses and validated</span>
+            <span>Documents are validated and confidence scores are calculated</span>
           </li>
           <li className="flex items-start space-x-2">
             <span className="text-blue-600 mt-1">•</span>
-            <span>AI will extract data, classify documents, and generate embeddings for search</span>
+            <span>Processed invoices can be verified, approved, or rejected as needed</span>
+          </li>
+          <li className="flex items-start space-x-2">
+            <span className="text-blue-600 mt-1">•</span>
+            <span>All invoices are linked to your selected trip for expense tracking</span>
           </li>
         </ul>
       </div>

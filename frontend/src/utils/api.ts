@@ -1,6 +1,7 @@
 // API utilities for Trip Optimizer Frontend
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || 'http://localhost:8003'
+const DATABASE_API_URL = process.env.NEXT_PUBLIC_DATABASE_API_URL || 'http://localhost:8002'
 
 export interface User {
   _id: string
@@ -450,6 +451,641 @@ export const authAPI = {
       }
     } catch (error) {
       throw new Error((error as Error).message || 'Failed to reset password')
+    }
+  }
+}
+
+// Trip interfaces
+export interface Trip {
+  _id: string
+  title: string
+  destination: {
+    country: string
+    city: string
+  }
+  dates: {
+    startDate: string
+    endDate: string
+  }
+  budget: {
+    total: number
+    currency: string
+  }
+  status: 'planning' | 'booked' | 'active' | 'completed' | 'cancelled'
+  travelers: Array<{
+    userId: string
+    role: 'owner' | 'admin' | 'member'
+  }>
+  tags: string[]
+  isPublic: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateTripData {
+  title: string
+  destination: {
+    country: string
+    city: string
+  }
+  dates: {
+    startDate: string
+    endDate: string
+  }
+  budget: {
+    total: number
+    currency: string
+  }
+  travelers: Array<{
+    userId: string
+    role: 'owner' | 'admin' | 'member'
+  }>
+  tags?: string[]
+  isPublic?: boolean
+}
+
+// Invoice interfaces
+export interface Invoice {
+  _id: string
+  invoiceNumber?: string
+  invoiceDate: string
+  dueDate: string
+  documentStatus: 'uploaded' | 'processing' | 'parsed' | 'verified' | 'approved' | 'rejected' | 'archived'
+  processingStatus: 'pending' | 'in_progress' | 'completed' | 'failed' | 'retry'
+  parsingStatus: 'not_started' | 'extracting_text' | 'analyzing_structure' | 'completed' | 'failed'
+  originalFileName: string
+  filePath: string
+  fileSize?: number
+  fileType?: string
+  mimeType?: string
+  parsedData?: {
+    vendor?: {
+      name?: string
+      address?: {
+        street?: string
+        city?: string
+        state?: string
+        zipCode?: string
+        country?: string
+      }
+      contact?: {
+        email?: string
+        phone?: string
+      }
+      taxId?: string
+    }
+    customer?: {
+      name?: string
+      address?: {
+        street?: string
+        city?: string
+        state?: string
+        zipCode?: string
+        country?: string
+      }
+      contact?: {
+        email?: string
+        phone?: string
+      }
+      taxId?: string
+    }
+    financial?: {
+      subtotal?: number
+      taxAmount?: number
+      totalAmount?: number
+      currency?: string
+      taxRate?: number
+      discountAmount?: number
+    }
+    lineItems?: Array<{
+      description?: string
+      quantity?: number
+      unitPrice?: number
+      totalPrice?: number
+      taxRate?: number
+    }>
+  }
+  processingMetadata?: {
+    startTime?: string
+    endTime?: string
+    processingTime?: number
+    retryCount?: number
+    lastError?: string
+    confidenceScore?: number
+    extractionMethod?: 'manual' | 'ocr' | 'ai_model'
+  }
+  verification?: {
+    isVerified?: boolean
+    verifiedBy?: string
+    verifiedAt?: string
+    notes?: string
+    confidenceLevel?: 'low' | 'medium' | 'high'
+  }
+  approval?: {
+    isApproved?: boolean
+    approvedBy?: string
+    approvedAt?: string
+    notes?: string
+    approvalLevel?: 'pending' | 'level_1' | 'level_2' | 'final'
+  }
+  tripId?: string
+  expenseId?: string
+  tags?: string[]
+  category?: 'accommodation' | 'transportation' | 'meals' | 'entertainment' | 'shopping' | 'other' | 'utility' | 'software' | 'travel' | 'office_supplies' | 'marketing' | 'salary' | 'rent'
+  auditTrail?: Array<{
+    action: string
+    performedBy?: string
+    timestamp: string
+    details?: string
+    changes?: any
+  }>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateInvoiceData {
+  invoiceNumber?: string
+  invoiceDate: string
+  dueDate: string
+  originalFileName: string
+  filePath: string
+  fileSize?: number
+  fileType?: string
+  mimeType?: string
+  tripId?: string
+  category?: string
+  tags?: string[]
+}
+
+// Trip API functions
+export const tripsAPI = {
+  // Create a new trip
+  create: async (tripData: CreateTripData): Promise<Trip> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/trips`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(tripData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to create trip')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to create trip')
+    }
+  },
+
+  // Get all trips
+  getAll: async (params?: {
+    page?: number
+    limit?: number
+    status?: string
+    search?: string
+  }): Promise<{ data: Trip[], pagination: any }> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const queryParams = new URLSearchParams()
+      if (params?.page) queryParams.append('page', params.page.toString())
+      if (params?.limit) queryParams.append('limit', params.limit.toString())
+      if (params?.status) queryParams.append('status', params.status)
+      if (params?.search) queryParams.append('search', params.search)
+
+      const response = await fetch(`${DATABASE_API_URL}/api/trips?${queryParams}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to fetch trips')
+      }
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to fetch trips')
+    }
+  },
+
+  // Get single trip by ID
+  getById: async (id: string): Promise<Trip> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/trips/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to fetch trip')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to fetch trip')
+    }
+  },
+
+  // Update trip
+  update: async (id: string, tripData: Partial<CreateTripData>): Promise<Trip> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/trips/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(tripData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to update trip')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to update trip')
+    }
+  },
+
+  // Delete trip
+  delete: async (id: string): Promise<void> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/trips/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to delete trip')
+      }
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to delete trip')
+    }
+  }
+}
+
+// Invoice API functions
+export const invoicesAPI = {
+  // Create a new invoice
+  create: async (invoiceData: CreateInvoiceData): Promise<Invoice> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/invoices`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(invoiceData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to create invoice')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to create invoice')
+    }
+  },
+
+  // Get all invoices
+  getAll: async (params?: {
+    page?: number
+    limit?: number
+    documentStatus?: string
+    tripId?: string
+    search?: string
+  }): Promise<{ data: Invoice[], pagination: any }> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const queryParams = new URLSearchParams()
+      if (params?.page) queryParams.append('page', params.page.toString())
+      if (params?.limit) queryParams.append('limit', params.limit.toString())
+      if (params?.documentStatus) queryParams.append('documentStatus', params.documentStatus)
+      if (params?.tripId) queryParams.append('tripId', params.tripId)
+      if (params?.search) queryParams.append('search', params.search)
+
+      const response = await fetch(`${DATABASE_API_URL}/api/invoices?${queryParams}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to fetch invoices')
+      }
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to fetch invoices')
+    }
+  },
+
+  // Get single invoice by ID
+  getById: async (id: string): Promise<Invoice> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to fetch invoice')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to fetch invoice')
+    }
+  },
+
+  // Start invoice processing
+  startProcessing: async (id: string): Promise<Invoice> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}/process`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to start processing')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to start processing')
+    }
+  },
+
+  // Complete invoice processing with parsed data
+  completeProcessing: async (id: string, parsedData: any, confidenceScore?: number): Promise<Invoice> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}/complete-processing`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ parsedData, confidenceScore }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to complete processing')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to complete processing')
+    }
+  },
+
+  // Fail invoice processing
+  failProcessing: async (id: string, error: { message: string; code?: string }): Promise<Invoice> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}/fail-processing`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ error }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to mark processing as failed')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to mark processing as failed')
+    }
+  },
+
+  // Verify invoice
+  verify: async (id: string, notes?: string, confidenceLevel?: 'low' | 'medium' | 'high'): Promise<Invoice> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}/verify`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ notes, confidenceLevel }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to verify invoice')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to verify invoice')
+    }
+  },
+
+  // Approve invoice
+  approve: async (id: string, notes?: string, approvalLevel?: string): Promise<Invoice> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}/approve`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ notes, approvalLevel }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to approve invoice')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to approve invoice')
+    }
+  },
+
+  // Reject invoice
+  reject: async (id: string, reason?: string): Promise<Invoice> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}/reject`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to reject invoice')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to reject invoice')
+    }
+  },
+
+  // Get invoice analytics
+  getAnalytics: async (): Promise<any> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/invoices/analytics`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to fetch analytics')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to fetch analytics')
+    }
+  },
+
+  // Validate invoice data
+  validate: async (parsedData: any): Promise<any> => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${DATABASE_API_URL}/api/invoices/validate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ parsedData }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to validate invoice data')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to validate invoice data')
     }
   }
 }

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { User } from '../utils/api'
+import { User, tripsAPI, Trip } from '../utils/api'
 
 interface DashboardProps {
   user: User
+  onSectionChange: (section: string) => void
 }
 
 interface DashboardStats {
@@ -19,12 +20,12 @@ interface RecentTrip {
   destination: string
   startDate: string
   endDate: string
-  status: 'planned' | 'active' | 'completed'
+  status: 'planning' | 'booked' | 'active' | 'completed' | 'cancelled'
   totalExpenses: number
   budget: number
 }
 
-export default function Dashboard({ user }: DashboardProps) {
+export default function Dashboard({ user, onSectionChange }: DashboardProps) {
   const [stats, setStats] = useState<DashboardStats>({
     totalTrips: 0,
     activeTrips: 0,
@@ -33,6 +34,7 @@ export default function Dashboard({ user }: DashboardProps) {
     documentsProcessed: 0
   })
   const [recentTrips, setRecentTrips] = useState<RecentTrip[]>([])
+  const [upcomingTrips, setUpcomingTrips] = useState<Trip[]>([])
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
 
@@ -42,44 +44,80 @@ export default function Dashboard({ user }: DashboardProps) {
       setCurrentTime(new Date())
     }, 1000)
 
-    // Simulate API call
-    setTimeout(() => {
-      setStats({
-        totalTrips: 5,
-        activeTrips: 2,
-        totalExpenses: 2250.50,
-        totalSavings: 150.00,
-        documentsProcessed: 12
-      })
-      
-      setRecentTrips([
-        {
-          id: 'trip_1',
-          name: 'Paris Business Trip',
-          destination: 'Paris, France',
-          startDate: '2024-02-15',
-          endDate: '2024-02-18',
-          status: 'planned',
-          totalExpenses: 450.00,
-          budget: 2000.00
-        },
-        {
-          id: 'trip_2',
-          name: 'London Conference',
-          destination: 'London, UK',
-          startDate: '2024-03-10',
-          endDate: '2024-03-12',
-          status: 'active',
-          totalExpenses: 1200.00,
-          budget: 1500.00
-        }
-      ])
-      
-      setLoading(false)
-    }, 1000)
+    // Load real data from API
+    loadDashboardData()
 
     return () => clearInterval(timeInterval)
   }, [])
+
+  const loadDashboardData = async () => {
+    try {
+      // Load trips from API
+      const tripsResponse = await tripsAPI.getAll()
+      const trips = tripsResponse.data || []
+
+      // Calculate stats
+      const totalTrips = trips.length
+      const activeTrips = trips.filter(trip => trip.status === 'active' || trip.status === 'booked').length
+      const totalExpenses = trips.reduce((sum, trip) => sum + (trip.budget?.total || 0), 0)
+      
+      // Convert trips to RecentTrip format
+      const recentTripsData: RecentTrip[] = trips.slice(0, 5).map(trip => ({
+        id: trip._id,
+        name: trip.title,
+        destination: `${trip.destination.city}, ${trip.destination.country}`,
+        startDate: trip.dates.startDate,
+        endDate: trip.dates.endDate,
+        status: trip.status as 'planning' | 'booked' | 'active' | 'completed' | 'cancelled',
+        totalExpenses: 0, // We'll calculate this when we have expenses
+        budget: trip.budget?.total || 0
+      }))
+
+      // Get upcoming trips (next 30 days)
+      const now = new Date()
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+      const upcoming = trips.filter(trip => {
+        const startDate = new Date(trip.dates.startDate)
+        return startDate >= now && startDate <= thirtyDaysFromNow
+      })
+
+      setStats({
+        totalTrips,
+        activeTrips,
+        totalExpenses,
+        totalSavings: 150.00, // Placeholder
+        documentsProcessed: 12 // Placeholder
+      })
+      
+      setRecentTrips(recentTripsData)
+      setUpcomingTrips(upcoming)
+      setLoading(false)
+    } catch (error) {
+      console.error('Error loading dashboard data:', error)
+      setLoading(false)
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const getTimeUntilTrip = (dateString: string) => {
+    const tripDate = new Date(dateString)
+    const now = new Date()
+    const diffTime = tripDate.getTime() - now.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    
+    if (diffDays < 0) return 'Past trip'
+    if (diffDays === 0) return 'Today'
+    if (diffDays === 1) return 'Tomorrow'
+    if (diffDays < 7) return `${diffDays} days away`
+    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks away`
+    return `${Math.ceil(diffDays / 30)} months away`
+  }
 
   if (loading) {
     return (
@@ -196,8 +234,10 @@ export default function Dashboard({ user }: DashboardProps) {
                   <div className="flex items-center space-x-2">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                       trip.status === 'active' ? 'bg-green-100 text-green-800' :
-                      trip.status === 'planned' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
+                      trip.status === 'planning' ? 'bg-blue-100 text-blue-800' :
+                      trip.status === 'booked' ? 'bg-yellow-100 text-yellow-800' :
+                      trip.status === 'completed' ? 'bg-gray-100 text-gray-800' :
+                      'bg-red-100 text-red-800'
                     }`}>
                       {trip.status}
                     </span>
@@ -223,19 +263,28 @@ export default function Dashboard({ user }: DashboardProps) {
         <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="space-y-3">
-            <button className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
+            <button 
+              onClick={() => onSectionChange('upload')}
+              className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors"
+            >
               <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
               <span className="font-medium">Upload Document</span>
             </button>
-            <button className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
+            <button 
+              onClick={() => onSectionChange('trips')}
+              className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors"
+            >
               <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              <span className="font-medium">Create New Trip</span>
+              <span className="font-medium">View Trips</span>
             </button>
-            <button className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
+            <button 
+              onClick={() => onSectionChange('chat')}
+              className="w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors"
+            >
               <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
@@ -268,16 +317,26 @@ export default function Dashboard({ user }: DashboardProps) {
         <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Trips</h3>
           <div className="space-y-3">
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <h4 className="font-medium text-gray-900">London Conference</h4>
-              <p className="text-sm text-gray-600">Mar 10 - Mar 12</p>
-              <p className="text-xs text-blue-600">2 weeks away</p>
-            </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <h4 className="font-medium text-gray-900">Berlin Meeting</h4>
-              <p className="text-sm text-gray-600">Apr 5 - Apr 7</p>
-              <p className="text-xs text-gray-500">1 month away</p>
-            </div>
+            {upcomingTrips.length > 0 ? (
+              upcomingTrips.map((trip) => {
+                const startDate = new Date(trip.dates.startDate)
+                const now = new Date()
+                const daysUntilTrip = Math.ceil((startDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                
+                return (
+                  <div key={trip._id} className="p-3 bg-blue-50 rounded-lg">
+                    <h4 className="font-medium text-gray-900">{trip.title}</h4>
+                    <p className="text-sm text-gray-600">{trip.destination.city}, {trip.destination.country}</p>
+                    <p className="text-sm text-gray-600">{formatDate(trip.dates.startDate)} - {formatDate(trip.dates.endDate)}</p>
+                    <p className="text-xs text-blue-600">{getTimeUntilTrip(trip.dates.startDate)}</p>
+                  </div>
+                )
+              })
+            ) : (
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-500">No upcoming trips</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
