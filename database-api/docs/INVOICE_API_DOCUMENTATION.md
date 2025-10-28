@@ -9,10 +9,13 @@ http://localhost:8002/api/invoices
 ```
 
 ## Authentication
-All endpoints require authentication via JWT token in the Authorization header:
+All endpoints require authentication via custom headers for user identification:
 ```
-Authorization: Bearer <jwt_token>
+x-user-id: <user_id>
+x-user-email: <user_email>
 ```
+
+**Note**: The system uses custom headers instead of JWT tokens for database-api authentication. The user ID and email are passed in custom headers to enable user-specific data filtering.
 
 ## Data Models
 
@@ -109,6 +112,7 @@ Authorization: Bearer <jwt_token>
   // Associations
   tripId: ObjectId (ref: Trip, required),
   expenseId: ObjectId (ref: Expense),
+  userId: ObjectId (ref: User, required), // User who created/owns the invoice
   
   // Metadata
   tags: [String],

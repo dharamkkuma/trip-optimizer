@@ -232,6 +232,13 @@ const invoiceSchema = new mongoose.Schema({
     required: false
   },
   
+  // User Ownership
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  
   // Expense Association
   expenseId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -278,6 +285,7 @@ invoiceSchema.index({ invoiceDate: 1 });
 invoiceSchema.index({ documentStatus: 1 });
 invoiceSchema.index({ processingStatus: 1 });
 invoiceSchema.index({ tripId: 1 });
+invoiceSchema.index({ userId: 1 });
 invoiceSchema.index({ expenseId: 1 });
 invoiceSchema.index({ 'parsedData.financial.totalAmount': 1 });
 invoiceSchema.index({ createdAt: -1 });

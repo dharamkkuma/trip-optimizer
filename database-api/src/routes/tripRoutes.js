@@ -21,6 +21,12 @@ router.get('/', async (req, res) => {
     // Build query
     const query = { status: 'active' };
     
+    // Filter by user (from JWT token or query param)
+    const currentUserId = req.user?.id || userId;
+    if (currentUserId) {
+      query['travelers.userId'] = currentUserId;
+    }
+    
     if (status) {
       query.status = status;
     }
@@ -31,10 +37,6 @@ router.get('/', async (req, res) => {
         { 'destination.city': { $regex: search, $options: 'i' } },
         { 'destination.country': { $regex: search, $options: 'i' } }
       ];
-    }
-
-    if (userId) {
-      query['travelers.userId'] = userId;
     }
 
     const trips = await Trip.find(query)

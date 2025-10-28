@@ -29,6 +29,11 @@ router.get('/', async (req, res) => {
     // Build filter object
     const filter = { status: 'active' };
 
+    // Filter by user (from JWT token)
+    if (req.user?.id) {
+      filter.userId = req.user.id;
+    }
+
     if (status) filter.status = status;
     if (documentStatus) filter.documentStatus = documentStatus;
     if (processingStatus) filter.processingStatus = processingStatus;
@@ -333,6 +338,7 @@ router.post('/', async (req, res) => {
       fileType,
       mimeType,
       tripId,
+      userId: req.user?.id, // Add user ownership
       category: category || 'other',
       tags: tags || [],
       parsedData: parsedData || {},

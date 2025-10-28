@@ -3,6 +3,16 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || 'http://localhost:8003'
 const DATABASE_API_URL = process.env.NEXT_PUBLIC_DATABASE_API_URL || 'http://localhost:8002'
 
+// Helper function to get user headers for database API calls
+const getUserHeaders = () => {
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  return {
+    'Content-Type': 'application/json',
+    'x-user-id': user._id || '507f1f77bcf86cd799439011',
+    'x-user-email': user.email || 'test@example.com'
+  }
+}
+
 export interface User {
   _id: string
   email: string
@@ -621,18 +631,10 @@ export interface CreateInvoiceData {
 export const tripsAPI = {
   // Create a new trip
   create: async (tripData: CreateTripData): Promise<Trip> => {
-    const token = localStorage.getItem('accessToken')
-    if (!token) {
-      throw new Error('No access token found')
-    }
-
     try {
       const response = await fetch(`${DATABASE_API_URL}/api/trips`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: getUserHeaders(),
         body: JSON.stringify(tripData),
       })
 
@@ -655,11 +657,6 @@ export const tripsAPI = {
     status?: string
     search?: string
   }): Promise<{ data: Trip[], pagination: any }> => {
-    const token = localStorage.getItem('accessToken')
-    if (!token) {
-      throw new Error('No access token found')
-    }
-
     try {
       const queryParams = new URLSearchParams()
       if (params?.page) queryParams.append('page', params.page.toString())
@@ -668,9 +665,7 @@ export const tripsAPI = {
       if (params?.search) queryParams.append('search', params.search)
 
       const response = await fetch(`${DATABASE_API_URL}/api/trips?${queryParams}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: getUserHeaders(),
       })
 
       if (!response.ok) {
@@ -769,18 +764,10 @@ export const tripsAPI = {
 export const invoicesAPI = {
   // Create a new invoice
   create: async (invoiceData: CreateInvoiceData): Promise<Invoice> => {
-    const token = localStorage.getItem('accessToken')
-    if (!token) {
-      throw new Error('No access token found')
-    }
-
     try {
       const response = await fetch(`${DATABASE_API_URL}/api/invoices`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: getUserHeaders(),
         body: JSON.stringify(invoiceData),
       })
 
@@ -804,11 +791,6 @@ export const invoicesAPI = {
     tripId?: string
     search?: string
   }): Promise<{ data: Invoice[], pagination: any }> => {
-    const token = localStorage.getItem('accessToken')
-    if (!token) {
-      throw new Error('No access token found')
-    }
-
     try {
       const queryParams = new URLSearchParams()
       if (params?.page) queryParams.append('page', params.page.toString())
@@ -818,9 +800,7 @@ export const invoicesAPI = {
       if (params?.search) queryParams.append('search', params.search)
 
       const response = await fetch(`${DATABASE_API_URL}/api/invoices?${queryParams}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: getUserHeaders(),
       })
 
       if (!response.ok) {

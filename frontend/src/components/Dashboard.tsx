@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { User, tripsAPI, Trip } from '../utils/api'
+import { User, tripsAPI, invoicesAPI, Trip } from '../utils/api'
 
 interface DashboardProps {
   user: User
@@ -56,10 +56,15 @@ export default function Dashboard({ user, onSectionChange }: DashboardProps) {
       const tripsResponse = await tripsAPI.getAll()
       const trips = tripsResponse.data || []
 
+      // Load invoices from API
+      const invoicesResponse = await invoicesAPI.getAll({ limit: 1000 })
+      const invoices = invoicesResponse.data || []
+
       // Calculate stats
       const totalTrips = trips.length
       const activeTrips = trips.filter(trip => trip.status === 'active' || trip.status === 'booked').length
       const totalExpenses = trips.reduce((sum, trip) => sum + (trip.budget?.total || 0), 0)
+      const documentsProcessed = invoices.length
       
       // Convert trips to RecentTrip format
       const recentTripsData: RecentTrip[] = trips.slice(0, 5).map(trip => ({
@@ -86,7 +91,7 @@ export default function Dashboard({ user, onSectionChange }: DashboardProps) {
         activeTrips,
         totalExpenses,
         totalSavings: 150.00, // Placeholder
-        documentsProcessed: 12 // Placeholder
+        documentsProcessed
       })
       
       setRecentTrips(recentTripsData)

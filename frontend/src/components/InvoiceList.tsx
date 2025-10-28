@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react'
 import { User, invoicesAPI, tripsAPI, Invoice, Trip } from '../utils/api'
 
+// Helper function to get user headers for database API calls
+const getUserHeaders = () => {
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  return {
+    'Content-Type': 'application/json',
+    'x-user-id': user._id || '507f1f77bcf86cd799439011',
+    'x-user-email': user.email || 'test@example.com'
+  }
+}
+
 interface InvoiceListProps {
   user: User
 }
@@ -31,7 +41,7 @@ export default function InvoiceList({ user }: InvoiceListProps) {
   const loadInvoices = async () => {
     try {
       setLoading(true)
-      const response = await invoicesAPI.getAll()
+      const response = await invoicesAPI.getAll({ limit: 1000 }) // Get all invoices
       setInvoices(response.data || [])
     } catch (error) {
       console.error('Error loading invoices:', error)
@@ -110,17 +120,43 @@ export default function InvoiceList({ user }: InvoiceListProps) {
 
   const filteredInvoices = invoices.filter(invoice => {
     const statusMatch = filter === 'all' || invoice.documentStatus === filter
-    const tripMatch = tripFilter === 'all' || invoice.tripId === tripFilter
+    let tripMatch = true
+    
+    if (tripFilter !== 'all') {
+      // Check if tripId is populated (object) or just an ID (string)
+      if (typeof invoice.tripId === 'object' && invoice.tripId !== null) {
+        tripMatch = (invoice.tripId as any)._id === tripFilter
+      } else if (typeof invoice.tripId === 'string') {
+        tripMatch = invoice.tripId === tripFilter
+      } else {
+        tripMatch = false
+      }
+    }
+    
     return statusMatch && tripMatch
   })
 
   const handleRetry = async (invoiceId: string) => {
     try {
-      // For now, we'll just reload the invoices since there's no retry endpoint
-      // In the future, this could call a retry endpoint
+      // Call the retry processing endpoint
+      const response = await fetch(`${process.env.NEXT_PUBLIC_DATABASE_API_URL || 'http://localhost:8002'}/api/invoices/${invoiceId}/retry`, {
+        method: 'POST',
+        headers: getUserHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to retry invoice processing')
+      }
+
+      // Reload invoices to show updated status
       await loadInvoices()
+      
+      // Show success message
+      alert('Invoice processing retry initiated successfully!')
     } catch (error) {
       console.error('Error retrying invoice:', error)
+      alert('Failed to retry invoice processing. Please try again.')
     }
   }
 
@@ -172,9 +208,15 @@ export default function InvoiceList({ user }: InvoiceListProps) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
-  const getTripName = (tripId: string) => {
-    const trip = trips.find(t => t._id === tripId)
-    return trip ? trip.title : 'Unknown Trip'
+  const getTripName = (tripId: any) => {
+    // Check if tripId is populated (object) or just an ID (string)
+    if (typeof tripId === 'object' && tripId !== null) {
+      return tripId.title || 'Unknown Trip'
+    } else if (typeof tripId === 'string') {
+      const trip = trips.find(t => t._id === tripId)
+      return trip ? trip.title : 'Unknown Trip'
+    }
+    return 'No Trip Assigned'
   }
 
   if (loading) {
