@@ -1,15 +1,13 @@
 // API utilities for Trip Optimizer Frontend
+// CENTRALIZED ARCHITECTURE: All API calls go through the Backend API
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || 'http://localhost:8003'
-const DATABASE_API_URL = process.env.NEXT_PUBLIC_DATABASE_API_URL || 'http://localhost:8002'
 
-// Helper function to get user headers for database API calls
-const getUserHeaders = () => {
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
+// Helper function to get auth headers for authenticated requests
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('accessToken')
   return {
     'Content-Type': 'application/json',
-    'x-user-id': user._id || '507f1f77bcf86cd799439011',
-    'x-user-email': user.email || 'test@example.com'
+    'Authorization': token ? `Bearer ${token}` : '',
   }
 }
 
@@ -46,7 +44,7 @@ export const authAPI = {
     lastName: string
   }): Promise<AuthResponse> => {
     try {
-      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/register`, {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -58,12 +56,12 @@ export const authAPI = {
         const data = await response.json()
         
         // Store tokens and user data locally
-        localStorage.setItem('accessToken', data.data.accessToken)
-        localStorage.setItem('refreshToken', data.data.refreshToken)
-        localStorage.setItem('user', JSON.stringify(data.data.user))
+        localStorage.setItem('accessToken', data.accessToken)
+        localStorage.setItem('refreshToken', data.refreshToken)
+        localStorage.setItem('user', JSON.stringify(data.user))
         localStorage.setItem('isLoggedIn', 'true')
         
-        return data.data
+        return data
       } else {
         const error = await response.json()
         throw new Error(error.message || 'Registration failed')
@@ -76,24 +74,24 @@ export const authAPI = {
   // Login user
   login: async (username: string, password: string): Promise<AuthResponse> => {
     try {
-      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ emailOrUsername: username, password }),
+        body: JSON.stringify({ username, password }),
       })
 
       if (response.ok) {
         const data = await response.json()
         
         // Store tokens and user data locally
-        localStorage.setItem('accessToken', data.data.accessToken)
-        localStorage.setItem('refreshToken', data.data.refreshToken)
-        localStorage.setItem('user', JSON.stringify(data.data.user))
+        localStorage.setItem('accessToken', data.accessToken)
+        localStorage.setItem('refreshToken', data.refreshToken)
+        localStorage.setItem('user', JSON.stringify(data.user))
         localStorage.setItem('isLoggedIn', 'true')
         
-        return data.data
+        return data
       } else {
         const error = await response.json()
         throw new Error(error.message || 'Login failed')
@@ -111,7 +109,7 @@ export const authAPI = {
     }
 
     try {
-      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/profile`, {
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -121,7 +119,7 @@ export const authAPI = {
 
       if (response.ok) {
         const data = await response.json()
-        return data.data.data.user
+        return data.user
       } else {
         const error = await response.json()
         throw new Error(error.message || 'Failed to get profile')
@@ -143,7 +141,7 @@ export const authAPI = {
     }
 
     try {
-      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/profile`, {
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -162,7 +160,7 @@ export const authAPI = {
         const refreshToken = localStorage.getItem('refreshToken')
         if (refreshToken) {
           try {
-            const refreshResponse = await fetch(`${AUTH_API_URL}/api/v1/auth/refresh`, {
+            const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -177,7 +175,7 @@ export const authAPI = {
               localStorage.setItem('user', JSON.stringify(refreshData.data.user))
               
               // Retry the original request with new token
-              const retryResponse = await fetch(`${AUTH_API_URL}/api/v1/auth/profile`, {
+              const retryResponse = await fetch(`${API_BASE_URL}/auth/profile`, {
                 method: 'PUT',
                 headers: {
                   'Authorization': `Bearer ${refreshData.data.accessToken}`,
@@ -216,7 +214,7 @@ export const authAPI = {
     
     if (token) {
       try {
-        await fetch(`${AUTH_API_URL}/api/v1/auth/logout`, {
+        await fetch(`${API_BASE_URL}/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -297,7 +295,7 @@ export const authAPI = {
       if (params?.role) queryParams.append('role', params.role)
       if (params?.status) queryParams.append('status', params.status)
 
-      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/admin/users?${queryParams.toString()}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users?${queryParams.toString()}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -324,7 +322,7 @@ export const authAPI = {
     }
 
     try {
-      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/admin/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -351,7 +349,7 @@ export const authAPI = {
     }
 
     try {
-      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/admin/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -379,7 +377,7 @@ export const authAPI = {
     }
 
     try {
-      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/admin/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -412,7 +410,7 @@ export const authAPI = {
 
     try {
       // Use the regular register endpoint but don't store the response tokens
-      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/register`, {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -440,7 +438,7 @@ export const authAPI = {
     }
 
     try {
-      const response = await fetch(`${AUTH_API_URL}/api/v1/auth/admin/users/${userId}/reset-password`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}/reset-password`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -632,9 +630,9 @@ export const tripsAPI = {
   // Create a new trip
   create: async (tripData: CreateTripData): Promise<Trip> => {
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/trips`, {
+      const response = await fetch(`${API_BASE_URL}/api/trips`, {
         method: 'POST',
-        headers: getUserHeaders(),
+        headers: getAuthHeaders(),
         body: JSON.stringify(tripData),
       })
 
@@ -664,8 +662,8 @@ export const tripsAPI = {
       if (params?.status) queryParams.append('status', params.status)
       if (params?.search) queryParams.append('search', params.search)
 
-      const response = await fetch(`${DATABASE_API_URL}/api/trips?${queryParams}`, {
-        headers: getUserHeaders(),
+      const response = await fetch(`${API_BASE_URL}/api/trips?${queryParams}`, {
+        headers: getAuthHeaders(),
       })
 
       if (!response.ok) {
@@ -688,7 +686,7 @@ export const tripsAPI = {
     }
 
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/trips/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/trips/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -714,7 +712,7 @@ export const tripsAPI = {
     }
 
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/trips/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/trips/${id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -743,7 +741,7 @@ export const tripsAPI = {
     }
 
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/trips/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/trips/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -765,9 +763,9 @@ export const invoicesAPI = {
   // Create a new invoice
   create: async (invoiceData: CreateInvoiceData): Promise<Invoice> => {
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/invoices`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices`, {
         method: 'POST',
-        headers: getUserHeaders(),
+        headers: getAuthHeaders(),
         body: JSON.stringify(invoiceData),
       })
 
@@ -799,8 +797,8 @@ export const invoicesAPI = {
       if (params?.tripId) queryParams.append('tripId', params.tripId)
       if (params?.search) queryParams.append('search', params.search)
 
-      const response = await fetch(`${DATABASE_API_URL}/api/invoices?${queryParams}`, {
-        headers: getUserHeaders(),
+      const response = await fetch(`${API_BASE_URL}/api/invoices?${queryParams}`, {
+        headers: getAuthHeaders(),
       })
 
       if (!response.ok) {
@@ -823,7 +821,7 @@ export const invoicesAPI = {
     }
 
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -849,7 +847,7 @@ export const invoicesAPI = {
     }
 
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/${id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -878,7 +876,7 @@ export const invoicesAPI = {
     }
 
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}/process`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/${id}/process`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -906,7 +904,7 @@ export const invoicesAPI = {
     }
 
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}/complete-processing`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/${id}/complete-processing`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -935,7 +933,7 @@ export const invoicesAPI = {
     }
 
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}/fail-processing`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/${id}/fail-processing`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -964,7 +962,7 @@ export const invoicesAPI = {
     }
 
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}/verify`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/${id}/verify`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -993,7 +991,7 @@ export const invoicesAPI = {
     }
 
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}/approve`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/${id}/approve`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1022,7 +1020,7 @@ export const invoicesAPI = {
     }
 
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/invoices/${id}/reject`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/${id}/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1051,7 +1049,7 @@ export const invoicesAPI = {
     }
 
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/invoices/analytics`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/analytics`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -1077,7 +1075,7 @@ export const invoicesAPI = {
     }
 
     try {
-      const response = await fetch(`${DATABASE_API_URL}/api/invoices/validate`, {
+      const response = await fetch(`${API_BASE_URL}/api/invoices/validate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1099,25 +1097,60 @@ export const invoicesAPI = {
   }
 }
 
-// Placeholder for future document API
+// Document API functions - using Storage API through Backend
 export const documentsAPI = {
   upload: async (file: File) => {
-    // Placeholder for future implementation
-    console.log('Document upload:', file.name)
-    return Promise.resolve({
-      document_id: 'demo_' + Date.now(),
-      status: 'uploaded',
-      filename: file.name
-    })
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch(`${API_BASE_URL}/api/storage/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to upload document')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to upload document')
+    }
   },
 
   getStatus: async (documentId: string) => {
-    // Placeholder for future implementation
-    return Promise.resolve({
-      document_id: documentId,
-      status: 'processing',
-      progress: 50,
-      extracted_data: null
-    })
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      throw new Error('No access token found')
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/storage/files/${documentId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to get document status')
+      }
+
+      const data = await response.json()
+      return data.data
+    } catch (error) {
+      throw new Error((error as Error).message || 'Failed to get document status')
+    }
   }
 }
