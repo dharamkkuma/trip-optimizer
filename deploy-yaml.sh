@@ -28,6 +28,37 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Function to build all Docker images in Minikube environment
+build_all_images() {
+    print_status "🔨 Building all Docker images in Minikube environment..."
+    echo ""
+    
+    # Array of services to build
+    services=(
+        "backend:trip-optimizer-backend:latest"
+        "frontend:trip-optimizer-frontend:latest"
+        "auth-api:trip-optimizer-auth-api:latest"
+        "database-api:trip-optimizer-database-api:latest"
+        "storage-api:trip-optimizer-storage-api:latest"
+    )
+    
+    # Build each service
+    for service_info in "${services[@]}"; do
+        IFS=':' read -r service_dir image_name image_tag <<< "$service_info"
+        
+        print_status "Building ${service_dir} image..."
+        if docker build --no-cache -t "${image_name}:${image_tag}" "./${service_dir}/"; then
+            print_success "${service_dir} image built successfully"
+        else
+            print_error "Failed to build ${service_dir} image"
+            return 1
+        fi
+    done
+    
+    print_success "🎉 All images built successfully!"
+    echo ""
+}
+
 # Function to deploy with YAML
 deploy_with_yaml() {
     print_status "🚀 Deploying Trip Optimizer with YAML manifests..."
@@ -45,13 +76,8 @@ deploy_with_yaml() {
     print_status "Setting Docker environment for Minikube..."
     eval $(minikube docker-env)
     
-    # 3. Build Docker images
-    print_status "Building Docker images..."
-    docker build -t trip-optimizer-backend:latest ./backend/
-    print_success "Backend image built"
-    
-    docker build -t trip-optimizer-frontend:latest ./frontend/
-    print_success "Frontend image built"
+    # 3. Build all Docker images
+    build_all_images
     
     # 4. Apply the complete YAML manifest
     print_status "Applying Kubernetes manifests..."
@@ -62,6 +88,9 @@ deploy_with_yaml() {
     print_status "Waiting for deployments to be ready..."
     kubectl wait --for=condition=available --timeout=120s deployment/backend -n trip-optimizer
     kubectl wait --for=condition=available --timeout=120s deployment/frontend -n trip-optimizer
+    kubectl wait --for=condition=available --timeout=120s deployment/auth-api -n trip-optimizer
+    kubectl wait --for=condition=available --timeout=120s deployment/database-api -n trip-optimizer
+    kubectl wait --for=condition=available --timeout=120s deployment/storage-api -n trip-optimizer
     kubectl wait --for=condition=available --timeout=120s deployment/redis -n trip-optimizer
     kubectl wait --for=condition=available --timeout=120s deployment/mongodb -n trip-optimizer
     
@@ -176,6 +205,45 @@ restart_port_forwarding() {
     echo "  🍃 MongoDB: localhost:27017"
 }
 
+# Function to show available images in Minikube
+show_images() {
+    print_status "📦 Available Docker images in Minikube:"
+    echo ""
+    
+    if minikube status | grep -q "Running"; then
+        eval $(minikube docker-env)
+        docker images | grep trip-optimizer || print_warning "No trip-optimizer images found"
+    else
+        print_warning "Minikube is not running. Start Minikube first."
+    fi
+}
+
+# Function to build images only
+build_images_only() {
+    print_status "🔨 Building images only (no deployment)..."
+    echo ""
+    
+    # Start Minikube if not running
+    if ! minikube status | grep -q "Running"; then
+        print_status "Starting Minikube..."
+        minikube start --driver=docker --memory=4096 --cpus=2
+    else
+        print_warning "Minikube is already running"
+    fi
+    
+    # Set Docker environment for Minikube
+    print_status "Setting Docker environment for Minikube..."
+    eval $(minikube docker-env)
+    
+    # Build all images
+    build_all_images
+    
+    print_success "✅ Image building completed!"
+    echo ""
+    print_status "Available images:"
+    show_images
+}
+
 # Function to show status
 show_status() {
     print_status "📊 Current Status:"
@@ -189,6 +257,10 @@ show_status() {
         echo ""
         print_status "Port Forwarding:"
         ps aux | grep "kubectl port-forward" | grep -v grep || print_warning "No port forwarding active"
+        echo ""
+        print_status "Available Docker images:"
+        eval $(minikube docker-env)
+        docker images | grep trip-optimizer || print_warning "No trip-optimizer images found"
     else
         print_warning "Minikube: Not running"
     fi
@@ -213,8 +285,14 @@ case "${1:-deploy}" in
     "port-forward"|"pf")
         restart_port_forwarding
         ;;
+    "build"|"images")
+        build_images_only
+        ;;
+    "list-images"|"images-list")
+        show_images
+        ;;
     *)
-        echo "Usage: $0 [deploy|stop|status|restart|port-forward]"
+        echo "Usage: $0 [deploy|stop|status|restart|port-forward|build|list-images]"
         echo ""
         echo "Commands:"
         echo "  deploy (default) - Build images and deploy with YAML"
@@ -222,10 +300,14 @@ case "${1:-deploy}" in
         echo "  status          - Show current deployment status"
         echo "  restart         - Stop and redeploy everything"
         echo "  port-forward    - Restart port forwarding only"
+        echo "  build           - Build all images only (no deployment)"
+        echo "  list-images     - Show available Docker images in Minikube"
         echo ""
         echo "Examples:"
         echo "  $0              # Deploy everything with YAML"
         echo "  $0 deploy       # Deploy everything with YAML"
+        echo "  $0 build        # Build all images only"
+        echo "  $0 list-images  # Show available images"
         echo "  $0 stop         # Stop everything"
         echo "  $0 status       # Show status"
         echo "  $0 restart      # Restart everything"
@@ -233,6 +315,7 @@ case "${1:-deploy}" in
         echo ""
         echo "This is the PROPER way to deploy to Kubernetes!"
         echo "Uses a single YAML file with all resources defined."
+        echo "Automatically builds fresh images in Minikube environment."
         echo "Automatically sets up port forwarding for all services."
         exit 1
         ;;

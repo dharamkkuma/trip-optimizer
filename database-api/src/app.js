@@ -7,8 +7,16 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const connectDB = require('./config/database');
+const authMiddleware = require('./middleware/auth');
 const userRoutes = require('./routes/userRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const invoiceRoutes = require('./routes/invoiceRoutes');
+const tripRoutes = require('./routes/tripRoutes');
+
+// Import models to register them
+require('./models/User');
+require('./models/Trip');
+require('./models/Invoice');
 
 const app = express();
 
@@ -31,7 +39,7 @@ app.use(cors({
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'x-user-id', 'x-user-email']
 }));
 
 // Rate limiting
@@ -58,7 +66,9 @@ if (process.env.NODE_ENV === 'development') {
 
 // Routes
 app.use('/api/health', healthRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/users', authMiddleware, userRoutes);
+app.use('/api/trips', authMiddleware, tripRoutes);
+app.use('/api/invoices', authMiddleware, invoiceRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const mongoose = require('mongoose');
 
 // Common validation schemas
 const commonSchemas = {
@@ -229,10 +230,16 @@ const validate = (schema) => {
   };
 };
 
+// Utility functions
+const validateObjectId = (id) => {
+  return mongoose.Types.ObjectId.isValid(id);
+};
+
 module.exports = {
   commonSchemas,
   userSchemas,
   tripSchemas,
   paymentSchemas,
-  validate
+  validate,
+  validateObjectId
 };

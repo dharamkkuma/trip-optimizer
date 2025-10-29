@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import LoginForm from '../components/LoginForm'
 import RegisterForm from '../components/RegisterForm'
-import UserProfile from '../components/UserProfile'
-import UserManagement from '../components/UserManagement'
-import FileUpload from '../components/FileUpload'
+import DashboardLayout from '../components/DashboardLayout'
 import { authAPI, User } from '../utils/api'
+import { AlertProvider } from '../components/AlertProvider'
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null)
@@ -58,23 +57,26 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <main className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          <header className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">
-              Trip Optimizer
-            </h1>
-            <p className="text-gray-600">
-              AI-powered travel optimization platform
-            </p>
-          </header>
-
-          {isLoading ? (
-            <div className="max-w-md mx-auto text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-              <p className="mt-2 text-gray-600">Loading...</p>
+      <AlertProvider>
+        <main className="min-h-screen bg-gray-50">
+        {isLoading ? (
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading Trip Optimizer...</p>
             </div>
-          ) : !isLoggedIn ? (
+          </div>
+        ) : !isLoggedIn ? (
+          <div className="container mx-auto px-4 py-8">
+            <header className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                Trip Optimizer
+              </h1>
+              <p className="text-gray-600">
+                AI-powered travel optimization platform
+              </p>
+            </header>
+
             <div className="max-w-md mx-auto">
               {authMode === 'login' ? (
                 <LoginForm 
@@ -88,40 +90,16 @@ export default function Home() {
                 />
               )}
             </div>
-          ) : (
-            <div className="max-w-6xl mx-auto space-y-8">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-semibold text-gray-900">
-                  Welcome back, {user?.firstName || user?.username}!
-                </h2>
-                <button
-                  onClick={handleLogout}
-                  className="btn-secondary"
-                >
-                  Logout
-                </button>
-              </div>
-
-              {/* Main content area */}
-              <div className="grid lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-1">
-                  <UserProfile user={user} onUserUpdate={handleUserUpdate} />
-                </div>
-                <div className="lg:col-span-2">
-                  <FileUpload />
-                </div>
-              </div>
-
-              {/* Admin User Management */}
-              {user?.role === 'admin' && (
-                <div className="mt-8">
-                  <UserManagement currentUser={user} />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </main>
+          </div>
+        ) : user ? (
+          <DashboardLayout 
+            user={user} 
+            onUserUpdate={handleUserUpdate}
+            onLogout={handleLogout}
+          />
+        ) : null}
+        </main>
+      </AlertProvider>
     </>
   )
 }

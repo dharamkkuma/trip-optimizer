@@ -30,6 +30,7 @@ API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
 AUTH_API_URL = os.getenv("AUTH_API_URL", "http://localhost:8003")
 DATABASE_API_URL = os.getenv("DATABASE_API_URL", "http://localhost:8002")
+STORAGE_API_URL = os.getenv("STORAGE_API_URL", "http://localhost:8001")
 
 # CORS middleware
 app.add_middleware(
@@ -71,6 +72,51 @@ class UserProfileResponse(BaseModel):
     message: str
     user: dict = None
 
+# Additional models for trips and invoices
+class TripCreateRequest(BaseModel):
+    title: str
+    destination: dict
+    dates: dict
+    budget: dict
+    travelers: list
+    tags: list = []
+    isPublic: bool = False
+
+class TripUpdateRequest(BaseModel):
+    title: str = None
+    destination: dict = None
+    dates: dict = None
+    budget: dict = None
+    travelers: list = None
+    tags: list = None
+    isPublic: bool = None
+
+class InvoiceCreateRequest(BaseModel):
+    invoiceNumber: str = None
+    invoiceDate: str
+    dueDate: str
+    originalFileName: str
+    filePath: str
+    fileSize: int = None
+    fileType: str = None
+    mimeType: str = None
+    tripId: str = None
+    category: str = None
+    tags: list = []
+
+class InvoiceUpdateRequest(BaseModel):
+    invoiceNumber: str = None
+    invoiceDate: str = None
+    dueDate: str = None
+    originalFileName: str = None
+    filePath: str = None
+    fileSize: int = None
+    fileType: str = None
+    mimeType: str = None
+    tripId: str = None
+    category: str = None
+    tags: list = None
+
 # HTTP client configuration
 HTTP_TIMEOUT = 30.0
 MAX_RETRIES = 3
@@ -103,7 +149,9 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
             
             if response.status_code == 200:
                 data = response.json()
-                return data["data"]["user"]
+                user_data = data["data"]["user"]
+                user_data["accessToken"] = token  # Store the token for later use
+                return user_data
             elif response.status_code == 401:
                 raise HTTPException(status_code=401, detail="Invalid or expired token")
             else:
@@ -276,6 +324,389 @@ async def logout(authorization: Optional[str] = Header(None)):
             raise HTTPException(status_code=504, detail="Auth service timeout during logout")
         except httpx.RequestError as e:
             raise HTTPException(status_code=503, detail=f"Auth service unavailable: {str(e)}")
+
+# Legacy endpoint for backward compatibility
+@app.post("/login", response_model=LoginResponse)
+async def legacy_login(request: LoginRequest):
+    """Legacy login endpoint - redirects to new auth flow"""
+    return await login(request)
+
+# =============================================================================
+# TRIPS API ROUTES - Proxy to Database API
+# =============================================================================
+
+@app.post("/api/trips")
+async def create_trip(request: TripCreateRequest, current_user: dict = Depends(get_current_user)):
+    """Create a new trip via Database API"""
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.post(
+                f"{DATABASE_API_URL}/api/trips",
+                json=request.dict(),
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 201:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to create trip"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to create trip")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+@app.get("/api/trips")
+async def get_trips(
+    page: int = 1,
+    limit: int = 10,
+    status: str = None,
+    search: str = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all trips via Database API"""
+    
+    params = {"page": page, "limit": limit}
+    if status:
+        params["status"] = status
+    if search:
+        params["search"] = search
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.get(
+                f"{DATABASE_API_URL}/api/trips",
+                params=params,
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to fetch trips"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to fetch trips")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+@app.get("/api/trips/{trip_id}")
+async def get_trip(trip_id: str, current_user: dict = Depends(get_current_user)):
+    """Get single trip by ID via Database API"""
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.get(
+                f"{DATABASE_API_URL}/api/trips/{trip_id}",
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to fetch trip"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to fetch trip")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+@app.put("/api/trips/{trip_id}")
+async def update_trip(trip_id: str, request: TripUpdateRequest, current_user: dict = Depends(get_current_user)):
+    """Update trip via Database API"""
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.put(
+                f"{DATABASE_API_URL}/api/trips/{trip_id}",
+                json=request.dict(exclude_unset=True),
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to update trip"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to update trip")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+@app.delete("/api/trips/{trip_id}")
+async def delete_trip(trip_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete trip via Database API"""
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.delete(
+                f"{DATABASE_API_URL}/api/trips/{trip_id}",
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to delete trip"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to delete trip")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+# =============================================================================
+# INVOICES API ROUTES - Proxy to Database API
+# =============================================================================
+
+@app.post("/api/invoices")
+async def create_invoice(request: InvoiceCreateRequest, current_user: dict = Depends(get_current_user)):
+    """Create a new invoice via Database API"""
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.post(
+                f"{DATABASE_API_URL}/api/invoices",
+                json=request.dict(),
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 201:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to create invoice"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to create invoice")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+@app.get("/api/invoices")
+async def get_invoices(
+    page: int = 1,
+    limit: int = 10,
+    documentStatus: str = None,
+    tripId: str = None,
+    search: str = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all invoices via Database API"""
+    
+    params = {"page": page, "limit": limit}
+    if documentStatus:
+        params["documentStatus"] = documentStatus
+    if tripId:
+        params["tripId"] = tripId
+    if search:
+        params["search"] = search
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.get(
+                f"{DATABASE_API_URL}/api/invoices",
+                params=params,
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to fetch invoices"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to fetch invoices")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+@app.get("/api/invoices/{invoice_id}")
+async def get_invoice(invoice_id: str, current_user: dict = Depends(get_current_user)):
+    """Get single invoice by ID via Database API"""
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.get(
+                f"{DATABASE_API_URL}/api/invoices/{invoice_id}",
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to fetch invoice"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to fetch invoice")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+@app.put("/api/invoices/{invoice_id}")
+async def update_invoice(invoice_id: str, request: InvoiceUpdateRequest, current_user: dict = Depends(get_current_user)):
+    """Update invoice via Database API"""
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.put(
+                f"{DATABASE_API_URL}/api/invoices/{invoice_id}",
+                json=request.dict(exclude_unset=True),
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to update invoice"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to update invoice")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+# =============================================================================
+# USERS API ROUTES - Proxy to Database API
+# =============================================================================
+
+@app.get("/api/users")
+async def get_users(
+    page: int = 1,
+    limit: int = 10,
+    search: str = None,
+    role: str = None,
+    status: str = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all users via Database API"""
+    
+    params = {"page": page, "limit": limit}
+    if search:
+        params["search"] = search
+    if role:
+        params["role"] = role
+    if status:
+        params["status"] = status
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.get(
+                f"{DATABASE_API_URL}/api/users",
+                params=params,
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to fetch users"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to fetch users")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+@app.get("/api/users/{user_id}")
+async def get_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    """Get single user by ID via Database API"""
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.get(
+                f"{DATABASE_API_URL}/api/users/{user_id}",
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to fetch user"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to fetch user")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+# =============================================================================
+# STORAGE API ROUTES - Proxy to Storage API
+# =============================================================================
+
+@app.post("/api/storage/upload")
+async def upload_file(current_user: dict = Depends(get_current_user)):
+    """Upload file via Storage API"""
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.post(
+                f"{STORAGE_API_URL}/upload",
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to upload file"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to upload file")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Storage service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Storage service unavailable: {str(e)}")
+
+@app.get("/api/storage/files")
+async def get_files(current_user: dict = Depends(get_current_user)):
+    """Get all files via Storage API"""
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.get(
+                f"{STORAGE_API_URL}/files",
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to fetch files"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to fetch files")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Storage service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Storage service unavailable: {str(e)}")
 
 # Legacy endpoint for backward compatibility
 @app.post("/login", response_model=LoginResponse)
