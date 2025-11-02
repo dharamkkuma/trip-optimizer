@@ -503,12 +503,20 @@ async def delete_trip(trip_id: str, current_user: dict = Depends(get_current_use
 async def create_invoice(request: InvoiceCreateRequest, current_user: dict = Depends(get_current_user)):
     """Create a new invoice via Database API"""
     
+    # Extract user ID and email from current_user
+    user_id = current_user.get('_id') or current_user.get('id')
+    user_email = current_user.get('email', '')
+    
     async with get_http_client() as client:
         try:
             response = await client.post(
                 f"{DATABASE_API_URL}/api/invoices",
                 json=request.dict(),
-                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+                headers={
+                    "Authorization": f"Bearer {current_user.get('accessToken', '')}",
+                    "x-user-id": str(user_id) if user_id else "",
+                    "x-user-email": user_email
+                }
             )
             
             if response.status_code == 201:
@@ -535,6 +543,10 @@ async def get_invoices(
 ):
     """Get all invoices via Database API"""
     
+    # Extract user ID and email from current_user
+    user_id = current_user.get('_id') or current_user.get('id')
+    user_email = current_user.get('email', '')
+    
     params = {"page": page, "limit": limit}
     if documentStatus:
         params["documentStatus"] = documentStatus
@@ -548,7 +560,11 @@ async def get_invoices(
             response = await client.get(
                 f"{DATABASE_API_URL}/api/invoices",
                 params=params,
-                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+                headers={
+                    "Authorization": f"Bearer {current_user.get('accessToken', '')}",
+                    "x-user-id": str(user_id) if user_id else "",
+                    "x-user-email": user_email
+                }
             )
             
             if response.status_code == 200:
@@ -568,11 +584,19 @@ async def get_invoices(
 async def get_invoice(invoice_id: str, current_user: dict = Depends(get_current_user)):
     """Get single invoice by ID via Database API"""
     
+    # Extract user ID and email from current_user
+    user_id = current_user.get('_id') or current_user.get('id')
+    user_email = current_user.get('email', '')
+    
     async with get_http_client() as client:
         try:
             response = await client.get(
                 f"{DATABASE_API_URL}/api/invoices/{invoice_id}",
-                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+                headers={
+                    "Authorization": f"Bearer {current_user.get('accessToken', '')}",
+                    "x-user-id": str(user_id) if user_id else "",
+                    "x-user-email": user_email
+                }
             )
             
             if response.status_code == 200:
@@ -592,12 +616,20 @@ async def get_invoice(invoice_id: str, current_user: dict = Depends(get_current_
 async def update_invoice(invoice_id: str, request: InvoiceUpdateRequest, current_user: dict = Depends(get_current_user)):
     """Update invoice via Database API"""
     
+    # Extract user ID and email from current_user
+    user_id = current_user.get('_id') or current_user.get('id')
+    user_email = current_user.get('email', '')
+    
     async with get_http_client() as client:
         try:
             response = await client.put(
                 f"{DATABASE_API_URL}/api/invoices/{invoice_id}",
                 json=request.dict(exclude_unset=True),
-                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+                headers={
+                    "Authorization": f"Bearer {current_user.get('accessToken', '')}",
+                    "x-user-id": str(user_id) if user_id else "",
+                    "x-user-email": user_email
+                }
             )
             
             if response.status_code == 200:
@@ -607,6 +639,112 @@ async def update_invoice(invoice_id: str, request: InvoiceUpdateRequest, current
                 raise HTTPException(
                     status_code=response.status_code,
                     detail=error_data.get("message", "Failed to update invoice")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+@app.post("/api/invoices/{invoice_id}/process")
+async def start_invoice_processing(invoice_id: str, current_user: dict = Depends(get_current_user)):
+    """Start invoice processing via Database API"""
+    
+    # Extract user ID and email from current_user
+    user_id = current_user.get('_id') or current_user.get('id')
+    user_email = current_user.get('email', '')
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.post(
+                f"{DATABASE_API_URL}/api/invoices/{invoice_id}/process",
+                headers={
+                    "Authorization": f"Bearer {current_user.get('accessToken', '')}",
+                    "x-user-id": str(user_id) if user_id else "",
+                    "x-user-email": user_email
+                }
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to start invoice processing"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to start invoice processing")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+@app.post("/api/invoices/{invoice_id}/complete-processing")
+async def complete_invoice_processing(
+    invoice_id: str, 
+    request: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Complete invoice processing via Database API"""
+    
+    # Extract user ID and email from current_user
+    user_id = current_user.get('_id') or current_user.get('id')
+    user_email = current_user.get('email', '')
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.post(
+                f"{DATABASE_API_URL}/api/invoices/{invoice_id}/complete-processing",
+                json=request,
+                headers={
+                    "Authorization": f"Bearer {current_user.get('accessToken', '')}",
+                    "x-user-id": str(user_id) if user_id else "",
+                    "x-user-email": user_email
+                }
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to complete invoice processing"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to complete invoice processing")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+@app.post("/api/invoices/{invoice_id}/fail-processing")
+async def fail_invoice_processing(
+    invoice_id: str,
+    request: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Mark invoice processing as failed via Database API"""
+    
+    # Extract user ID and email from current_user
+    user_id = current_user.get('_id') or current_user.get('id')
+    user_email = current_user.get('email', '')
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.post(
+                f"{DATABASE_API_URL}/api/invoices/{invoice_id}/fail-processing",
+                json=request,
+                headers={
+                    "Authorization": f"Bearer {current_user.get('accessToken', '')}",
+                    "x-user-id": str(user_id) if user_id else "",
+                    "x-user-email": user_email
+                }
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to mark invoice processing as failed"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to mark invoice processing as failed")
                 )
         except httpx.TimeoutException:
             raise HTTPException(status_code=504, detail="Database service timeout")
