@@ -423,10 +423,11 @@ export const authAPI = {
       if (response.ok) {
         const data = await response.json()
         // Return the user data without storing tokens (to avoid auto-login)
-        return data.data.user
+        // Backend returns { success, message, user, accessToken, refreshToken }
+        return data.user || data.data?.user
       } else {
         const error = await response.json()
-        throw new Error(error.message || 'Failed to create user')
+        throw new Error(error.message || error.detail || 'Failed to create user')
       }
     } catch (error) {
       throw new Error((error as Error).message || 'Failed to create user')
