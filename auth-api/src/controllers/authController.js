@@ -158,13 +158,15 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { firstName, lastName, email } = req.body;
+    const { firstName, lastName, email, phone, bio } = req.body;
     
     // Update user profile via Database API
     const updateData = {};
     if (firstName) updateData.firstName = firstName;
     if (lastName) updateData.lastName = lastName;
     if (email) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (bio !== undefined) updateData.bio = bio;
     
     const userResponse = await axios.put(`${process.env.DATABASE_API_URL || 'http://localhost:8002'}/api/users/${userId}`, updateData);
     const user = userResponse.data.data;

@@ -134,6 +134,8 @@ export const authAPI = {
     firstName: string
     lastName: string
     email: string
+    phone?: string
+    bio?: string
   }): Promise<User> => {
     const token = localStorage.getItem('accessToken')
     if (!token) {
@@ -431,20 +433,25 @@ export const authAPI = {
     }
   },
 
-  resetUserPassword: async (userId: string, newPassword: string): Promise<void> => {
+  resetUserPassword: async (userId: string, currentPassword: string | null, newPassword: string): Promise<void> => {
     const token = localStorage.getItem('accessToken')
     if (!token) {
       throw new Error('No access token found')
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${userId}/reset-password`, {
-        method: 'POST',
+      const requestBody: { password: string; currentPassword?: string } = { password: newPassword }
+      if (currentPassword) {
+        requestBody.currentPassword = currentPassword
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}/password`, {
+        method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ newPassword }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {

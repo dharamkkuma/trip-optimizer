@@ -584,6 +584,7 @@ router.delete('/:id/refresh-tokens/all', [
 // PATCH /api/users/:id/password - Update user password (triggers pre-save middleware)
 router.patch('/:id/password', [
   param('id').isMongoId().withMessage('Invalid user ID'),
+  body('currentPassword').optional().notEmpty().withMessage('Current password is required if provided'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   validateRequest
 ], async (req, res) => {
@@ -594,6 +595,17 @@ router.patch('/:id/password', [
         success: false,
         message: 'User not found'
       });
+    }
+
+    // If currentPassword is provided, verify it before updating
+    if (req.body.currentPassword) {
+      const isPasswordValid = await user.comparePassword(req.body.currentPassword);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: 'Current password is incorrect'
+        });
+      }
     }
 
     // Update password - this will trigger pre-save middleware for hashing

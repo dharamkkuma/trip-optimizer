@@ -302,6 +302,42 @@ async def get_profile(authorization: Optional[str] = Header(None)):
         except httpx.RequestError as e:
             raise HTTPException(status_code=503, detail=f"Auth service unavailable: {str(e)}")
 
+@app.put("/auth/profile")
+async def update_profile(
+    request: dict = Body(...),
+    authorization: Optional[str] = Header(None)
+):
+    """Update user profile via Auth API"""
+    
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401, 
+            detail="Access token required. Please provide a valid Bearer token."
+        )
+    
+    token = authorization.split(" ")[1]
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.put(
+                f"{AUTH_API_URL}/api/v1/auth/profile",
+                json=request,
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to update profile"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to update profile")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Auth service timeout during profile update")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Auth service unavailable: {str(e)}")
+
 @app.post("/auth/logout")
 async def logout(authorization: Optional[str] = Header(None)):
     """Logout user via Auth API"""
@@ -849,6 +885,45 @@ async def get_user(user_id: str, current_user: dict = Depends(get_current_user))
                 raise HTTPException(
                     status_code=response.status_code,
                     detail=error_data.get("message", "Failed to fetch user")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
+@app.patch("/api/users/{user_id}/password")
+async def change_password(
+    user_id: str,
+    request: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Change user password via Database API (requires current password verification)"""
+    
+    # Extract user ID and email from current_user
+    current_user_id = current_user.get('_id') or current_user.get('id')
+    
+    # Only allow users to change their own password (unless admin)
+    if str(current_user_id) != user_id and current_user.get('role') != 'admin':
+        raise HTTPException(
+            status_code=403,
+            detail="You can only change your own password"
+        )
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.patch(
+                f"{DATABASE_API_URL}/api/users/{user_id}/password",
+                json=request,
+                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to change password"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to change password")
                 )
         except httpx.TimeoutException:
             raise HTTPException(status_code=504, detail="Database service timeout")

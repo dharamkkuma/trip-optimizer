@@ -30,7 +30,9 @@ export default function UserProfile({ user, onUserUpdate }: UserProfileProps) {
       const updatedUser = await authAPI.updateProfile({
         firstName: formData.firstName,
         lastName: formData.lastName,
-        email: formData.email
+        email: formData.email,
+        phone: formData.phone,
+        bio: formData.bio
       })
       
       onUserUpdate(updatedUser)
@@ -43,6 +45,10 @@ export default function UserProfile({ user, onUserUpdate }: UserProfileProps) {
   }
 
   const handlePasswordChange = async () => {
+    if (!passwordData.currentPassword) {
+      warning('Current password is required')
+      return
+    }
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       warning('New passwords do not match')
       return
@@ -53,8 +59,8 @@ export default function UserProfile({ user, onUserUpdate }: UserProfileProps) {
     }
     
     try {
-      // Call the API to change password for current user
-      await authAPI.resetUserPassword(user!._id, passwordData.newPassword)
+      // Call the API to change password for current user (requires current password verification)
+      await authAPI.resetUserPassword(user!._id, passwordData.currentPassword, passwordData.newPassword)
       
       success('Password changed successfully')
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })

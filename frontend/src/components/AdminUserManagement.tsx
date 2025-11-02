@@ -185,7 +185,7 @@ export default function AdminUserManagement({ user }: AdminUserManagementProps) 
     }
     
     try {
-      await authAPI.resetUserPassword(userId, passwordData.newPassword)
+      await authAPI.resetUserPassword(userId, null, passwordData.newPassword)
       
       success('Password changed successfully')
       setPasswordData({ newPassword: '', confirmPassword: '' })

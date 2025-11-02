@@ -131,7 +131,7 @@ export default function UserManagement({ currentUser }: UserManagementProps) {
     }
     
     try {
-      await authAPI.resetUserPassword(selectedUser._id, data.newPassword)
+      await authAPI.resetUserPassword(selectedUser._id, null, data.newPassword)
       setIsResettingPassword(false)
       setSelectedUser(null)
       setError(null)
