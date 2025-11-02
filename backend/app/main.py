@@ -32,10 +32,19 @@ AUTH_API_URL = os.getenv("AUTH_API_URL", "http://localhost:8003")
 DATABASE_API_URL = os.getenv("DATABASE_API_URL", "http://localhost:8002")
 STORAGE_API_URL = os.getenv("STORAGE_API_URL", "http://localhost:8001")
 
+# CORS configuration - allow both internal Kubernetes service and external localhost (for port-forwarding)
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",           # External URL (port forwarding)
+    "http://frontend-service:3000",    # Internal Kubernetes service URL
+    FRONTEND_URL,                      # From environment variable
+]
+# Remove duplicates while preserving order
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys(CORS_ALLOWED_ORIGINS))
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
