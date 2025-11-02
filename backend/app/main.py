@@ -911,6 +911,45 @@ async def get_user(user_id: str, current_user: dict = Depends(get_current_user))
         except httpx.RequestError as e:
             raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
 
+@app.put("/api/users/{user_id}")
+async def update_user(
+    user_id: str,
+    request: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Update user via Database API"""
+    
+    # Extract user ID, email, and role from current_user
+    user_id_header = current_user.get('_id') or current_user.get('id')
+    user_email = current_user.get('email', '')
+    user_role = current_user.get('role', 'user')
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.put(
+                f"{DATABASE_API_URL}/api/users/{user_id}",
+                json=request,
+                headers={
+                    "Authorization": f"Bearer {current_user.get('accessToken', '')}",
+                    "x-user-id": str(user_id_header) if user_id_header else "",
+                    "x-user-email": user_email,
+                    "x-user-role": user_role
+                }
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to update user"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to update user")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
 @app.patch("/api/users/{user_id}/password")
 async def change_password(
     user_id: str,

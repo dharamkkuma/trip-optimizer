@@ -362,10 +362,11 @@ export const authAPI = {
 
       if (response.ok) {
         const data = await response.json()
-        return data.data.data
+        // Database API returns { success: true, data: user }
+        return data.data || data.data?.data || data
       } else {
         const error = await response.json()
-        throw new Error(error.message || 'Failed to update user')
+        throw new Error(error.message || error.detail || 'Failed to update user')
       }
     } catch (error) {
       throw new Error((error as Error).message || 'Failed to update user')
