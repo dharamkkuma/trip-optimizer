@@ -3,7 +3,7 @@ Trip Optimizer Backend API - Orchestrator Service
 Routes requests between frontend and microservices (Auth API, Database API, Storage API)
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
