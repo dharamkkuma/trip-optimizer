@@ -312,6 +312,25 @@ export default function TripManagement({ user }: TripManagementProps) {
                   </svg>
                   Budget: {trip.budget.currency} {trip.budget.total.toLocaleString()}
                 </div>
+                
+                {/* Trip Owner Info */}
+                {trip.travelers && trip.travelers.length > 0 && (() => {
+                  const owner = trip.travelers.find((t: any) => t.role === 'owner')
+                  if (owner) {
+                    const ownerUser = typeof owner.userId === 'object' ? owner.userId : null
+                    if (ownerUser) {
+                      return (
+                        <div className="flex items-center text-sm text-gray-600">
+                          <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          Owner: {ownerUser.firstName} {ownerUser.lastName} ({ownerUser.email})
+                        </div>
+                      )
+                    }
+                  }
+                  return null
+                })()}
               </div>
               
               {/* Tags */}

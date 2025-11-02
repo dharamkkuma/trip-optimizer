@@ -307,7 +307,7 @@ export const authAPI = {
 
       if (response.ok) {
         const data = await response.json()
-        return data.data
+        return data
       } else {
         const error = await response.json()
         throw new Error(error.message || 'Failed to get users')
