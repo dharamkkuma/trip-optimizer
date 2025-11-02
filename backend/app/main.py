@@ -348,12 +348,20 @@ async def legacy_login(request: LoginRequest):
 async def create_trip(request: TripCreateRequest, current_user: dict = Depends(get_current_user)):
     """Create a new trip via Database API"""
     
+    # Extract user ID and email from current_user
+    user_id = current_user.get('_id') or current_user.get('id')
+    user_email = current_user.get('email', '')
+    
     async with get_http_client() as client:
         try:
             response = await client.post(
                 f"{DATABASE_API_URL}/api/trips",
                 json=request.dict(),
-                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+                headers={
+                    "Authorization": f"Bearer {current_user.get('accessToken', '')}",
+                    "x-user-id": str(user_id) if user_id else "",
+                    "x-user-email": user_email
+                }
             )
             
             if response.status_code == 201:
@@ -379,6 +387,10 @@ async def get_trips(
 ):
     """Get all trips via Database API"""
     
+    # Extract user ID and email from current_user
+    user_id = current_user.get('_id') or current_user.get('id')
+    user_email = current_user.get('email', '')
+    
     params = {"page": page, "limit": limit}
     if status:
         params["status"] = status
@@ -390,7 +402,11 @@ async def get_trips(
             response = await client.get(
                 f"{DATABASE_API_URL}/api/trips",
                 params=params,
-                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+                headers={
+                    "Authorization": f"Bearer {current_user.get('accessToken', '')}",
+                    "x-user-id": str(user_id) if user_id else "",
+                    "x-user-email": user_email
+                }
             )
             
             if response.status_code == 200:
