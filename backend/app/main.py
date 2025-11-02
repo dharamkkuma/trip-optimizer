@@ -751,6 +751,42 @@ async def fail_invoice_processing(
         except httpx.RequestError as e:
             raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
 
+@app.post("/api/invoices/validate")
+async def validate_invoice(
+    request: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Validate invoice data via Database API"""
+    
+    # Extract user ID and email from current_user
+    user_id = current_user.get('_id') or current_user.get('id')
+    user_email = current_user.get('email', '')
+    
+    async with get_http_client() as client:
+        try:
+            response = await client.post(
+                f"{DATABASE_API_URL}/api/invoices/validate",
+                json=request,
+                headers={
+                    "Authorization": f"Bearer {current_user.get('accessToken', '')}",
+                    "x-user-id": str(user_id) if user_id else "",
+                    "x-user-email": user_email
+                }
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"message": "Failed to validate invoice data"}
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to validate invoice data")
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="Database service timeout")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=503, detail=f"Database service unavailable: {str(e)}")
+
 # =============================================================================
 # USERS API ROUTES - Proxy to Database API
 # =============================================================================
