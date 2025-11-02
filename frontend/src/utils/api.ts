@@ -518,7 +518,13 @@ export interface CreateTripData {
     currency: string
   }
   travelers: Array<{
-    userId: string
+    userId: string | {
+      _id: string
+      firstName: string
+      lastName: string
+      email: string
+      username: string
+    }
     role: 'owner' | 'admin' | 'member'
   }>
   tags?: string[]

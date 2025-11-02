@@ -20,7 +20,13 @@ interface CreateTripForm {
     currency: string
   }
   travelers: Array<{
-    userId: string
+    userId: string | {
+      _id: string
+      firstName: string
+      lastName: string
+      email: string
+      username: string
+    }
     role: 'owner' | 'admin' | 'member'
   }>
   tags: string[]
@@ -103,7 +109,15 @@ export default function TripManagement({ user }: TripManagementProps) {
   const handleCreateTrip = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await tripsAPI.create(createForm)
+      // Convert travelers to ensure userId is a string
+      const formData = {
+        ...createForm,
+        travelers: createForm.travelers.map(t => ({
+          userId: typeof t.userId === 'object' ? t.userId._id : t.userId,
+          role: t.role
+        }))
+      }
+      await tripsAPI.create(formData)
       await loadTrips()
       setShowCreateModal(false)
       resetCreateForm()
@@ -119,7 +133,15 @@ export default function TripManagement({ user }: TripManagementProps) {
   const handleEditTrip = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await tripsAPI.update(editForm.id, editForm)
+      // Convert travelers to ensure userId is a string
+      const formData = {
+        ...editForm,
+        travelers: editForm.travelers.map(t => ({
+          userId: typeof t.userId === 'object' ? t.userId._id : t.userId,
+          role: t.role
+        }))
+      }
+      await tripsAPI.update(editForm.id, formData)
       await loadTrips()
       setShowEditModal(false)
       setSelectedTrip(null)
