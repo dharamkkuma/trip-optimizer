@@ -50,12 +50,21 @@ router.get('/', [
       .skip(skip)
       .limit(limit);
 
+    // Flatten profile.bio to bio for each user
+    const usersWithBio = users.map(user => {
+      const userObj = user.toObject();
+      if (userObj.profile && userObj.profile.bio !== undefined) {
+        userObj.bio = userObj.profile.bio;
+      }
+      return userObj;
+    });
+
     const total = await User.countDocuments(filter);
     const totalPages = Math.ceil(total / limit);
 
     res.json({
       success: true,
-      data: users,
+      data: usersWithBio,
       pagination: {
         page,
         limit,
@@ -164,9 +173,15 @@ router.get('/:id', [
       });
     }
 
+    // Flatten profile.bio to bio for response
+    const userObj = user.toObject();
+    if (userObj.profile && userObj.profile.bio !== undefined) {
+      userObj.bio = userObj.profile.bio;
+    }
+
     res.json({
       success: true,
-      data: user
+      data: userObj
     });
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -278,6 +293,12 @@ router.put('/:id', [
     const updateData = { ...req.body };
     if (updateData.email) updateData.email = updateData.email.toLowerCase();
     if (updateData.username) updateData.username = updateData.username.toLowerCase();
+    
+    // Map bio to profile.bio for storage
+    if (updateData.bio !== undefined) {
+      updateData['profile.bio'] = updateData.bio;
+      delete updateData.bio;
+    }
 
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id,
@@ -285,10 +306,16 @@ router.put('/:id', [
       { new: true, runValidators: true }
     ).select('-password -emailVerificationToken -passwordResetToken -passwordResetExpires -twoFactorSecret');
 
+    // Flatten profile.bio to bio for response
+    const responseUser = updatedUser.toObject();
+    if (responseUser.profile && responseUser.profile.bio !== undefined) {
+      responseUser.bio = responseUser.profile.bio;
+    }
+
     res.json({
       success: true,
       message: 'User updated successfully',
-      data: updatedUser
+      data: responseUser
     });
   } catch (error) {
     console.error('Error updating user:', error);
@@ -353,6 +380,12 @@ router.patch('/:id', [
 
     if (updateData.email) updateData.email = updateData.email.toLowerCase();
     if (updateData.username) updateData.username = updateData.username.toLowerCase();
+    
+    // Map bio to profile.bio for storage
+    if (updateData.bio !== undefined) {
+      updateData['profile.bio'] = updateData.bio;
+      delete updateData.bio;
+    }
 
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id,
@@ -360,10 +393,16 @@ router.patch('/:id', [
       { new: true, runValidators: true }
     ).select('-password -emailVerificationToken -passwordResetToken -passwordResetExpires -twoFactorSecret');
 
+    // Flatten profile.bio to bio for response
+    const responseUser = updatedUser.toObject();
+    if (responseUser.profile && responseUser.profile.bio !== undefined) {
+      responseUser.bio = responseUser.profile.bio;
+    }
+
     res.json({
       success: true,
       message: 'User updated successfully',
-      data: updatedUser
+      data: responseUser
     });
   } catch (error) {
     console.error('Error updating user:', error);

@@ -29,8 +29,9 @@ router.get('/', async (req, res) => {
     // Build filter object
     const filter = { status: 'active' };
 
-    // Filter by user (from JWT token)
-    if (req.user?.id) {
+    // Filter by user (from JWT token) - skip if admin
+    const currentUserRole = req.user?.role;
+    if (req.user?.id && currentUserRole !== 'admin') {
       filter.userId = req.user.id;
     }
 

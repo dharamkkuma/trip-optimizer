@@ -160,6 +160,12 @@ userSchema.methods.toSafeObject = function() {
   delete userObject.passwordResetExpires;
   delete userObject.twoFactorSecret;
   delete userObject.refreshTokens;
+  
+  // Flatten profile.bio to bio for frontend compatibility
+  if (userObject.profile && userObject.profile.bio !== undefined) {
+    userObject.bio = userObject.profile.bio;
+  }
+  
   return userObject;
 };
 

@@ -339,7 +339,10 @@ async def update_profile(
             raise HTTPException(status_code=503, detail=f"Auth service unavailable: {str(e)}")
 
 @app.post("/auth/logout")
-async def logout(authorization: Optional[str] = Header(None)):
+async def logout(
+    request: dict = Body(...),
+    authorization: Optional[str] = Header(None)
+):
     """Logout user via Auth API"""
     
     if not authorization or not authorization.startswith("Bearer "):
@@ -354,6 +357,7 @@ async def logout(authorization: Optional[str] = Header(None)):
         try:
             response = await client.post(
                 f"{AUTH_API_URL}/api/v1/auth/logout",
+                json=request,
                 headers={"Authorization": f"Bearer {token}"}
             )
             
@@ -384,9 +388,10 @@ async def legacy_login(request: LoginRequest):
 async def create_trip(request: TripCreateRequest, current_user: dict = Depends(get_current_user)):
     """Create a new trip via Database API"""
     
-    # Extract user ID and email from current_user
+    # Extract user ID, email, and role from current_user
     user_id = current_user.get('_id') or current_user.get('id')
     user_email = current_user.get('email', '')
+    user_role = current_user.get('role', 'user')
     
     async with get_http_client() as client:
         try:
@@ -396,7 +401,8 @@ async def create_trip(request: TripCreateRequest, current_user: dict = Depends(g
                 headers={
                     "Authorization": f"Bearer {current_user.get('accessToken', '')}",
                     "x-user-id": str(user_id) if user_id else "",
-                    "x-user-email": user_email
+                    "x-user-email": user_email,
+                    "x-user-role": user_role
                 }
             )
             
@@ -423,9 +429,10 @@ async def get_trips(
 ):
     """Get all trips via Database API"""
     
-    # Extract user ID and email from current_user
+    # Extract user ID, email, and role from current_user
     user_id = current_user.get('_id') or current_user.get('id')
     user_email = current_user.get('email', '')
+    user_role = current_user.get('role', 'user')
     
     params = {"page": page, "limit": limit}
     if status:
@@ -441,7 +448,8 @@ async def get_trips(
                 headers={
                     "Authorization": f"Bearer {current_user.get('accessToken', '')}",
                     "x-user-id": str(user_id) if user_id else "",
-                    "x-user-email": user_email
+                    "x-user-email": user_email,
+                    "x-user-role": user_role
                 }
             )
             
@@ -579,9 +587,10 @@ async def get_invoices(
 ):
     """Get all invoices via Database API"""
     
-    # Extract user ID and email from current_user
+    # Extract user ID, email, and role from current_user
     user_id = current_user.get('_id') or current_user.get('id')
     user_email = current_user.get('email', '')
+    user_role = current_user.get('role', 'user')
     
     params = {"page": page, "limit": limit}
     if documentStatus:
@@ -599,7 +608,8 @@ async def get_invoices(
                 headers={
                     "Authorization": f"Bearer {current_user.get('accessToken', '')}",
                     "x-user-id": str(user_id) if user_id else "",
-                    "x-user-email": user_email
+                    "x-user-email": user_email,
+                    "x-user-role": user_role
                 }
             )
             
@@ -838,6 +848,11 @@ async def get_users(
 ):
     """Get all users via Database API"""
     
+    # Extract user ID, email, and role from current_user
+    user_id = current_user.get('_id') or current_user.get('id')
+    user_email = current_user.get('email', '')
+    user_role = current_user.get('role', 'user')
+    
     params = {"page": page, "limit": limit}
     if search:
         params["search"] = search
@@ -851,7 +866,12 @@ async def get_users(
             response = await client.get(
                 f"{DATABASE_API_URL}/api/users",
                 params=params,
-                headers={"Authorization": f"Bearer {current_user.get('accessToken', '')}"}
+                headers={
+                    "Authorization": f"Bearer {current_user.get('accessToken', '')}",
+                    "x-user-id": str(user_id) if user_id else "",
+                    "x-user-email": user_email,
+                    "x-user-role": user_role
+                }
             )
             
             if response.status_code == 200:
