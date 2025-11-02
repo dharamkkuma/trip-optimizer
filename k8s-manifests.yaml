@@ -310,6 +310,8 @@ spec:
 
 ---
 # Backend Deployment
+# NOTE: Replicas set to 1 for local development (Minikube).
+# For production, increase replicas based on load requirements.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -318,7 +320,7 @@ metadata:
   labels:
     app: backend
 spec:
-  replicas: 2
+  replicas: 1  # Local development: 1 pod per service
   selector:
     matchLabels:
       app: backend
@@ -441,6 +443,7 @@ spec:
 
 ---
 # Storage API Deployment
+# NOTE: Replicas set to 1 for local development (Minikube).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -449,7 +452,7 @@ metadata:
   labels:
     app: storage-api
 spec:
-  replicas: 2
+  replicas: 1  # Local development: 1 pod per service
   selector:
     matchLabels:
       app: storage-api
@@ -550,6 +553,7 @@ spec:
           periodSeconds: 5
 ---
 # Auth API Deployment
+# NOTE: Replicas set to 1 for local development (Minikube).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -558,7 +562,7 @@ metadata:
   labels:
     app: auth-api
 spec:
-  replicas: 2
+  replicas: 1  # Local development: 1 pod per service
   selector:
     matchLabels:
       app: auth-api
@@ -696,6 +700,7 @@ spec:
 
 ---
 # Database API Deployment
+# NOTE: Replicas set to 1 for local development (Minikube).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -704,7 +709,7 @@ metadata:
   labels:
     app: database-api
 spec:
-  replicas: 2
+  replicas: 1  # Local development: 1 pod per service
   selector:
     matchLabels:
       app: database-api
@@ -807,6 +812,7 @@ spec:
 
 ---
 # Frontend Deployment
+# NOTE: Replicas set to 1 for local development (Minikube).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -815,7 +821,7 @@ metadata:
   labels:
     app: frontend
 spec:
-  replicas: 2
+  replicas: 1  # Local development: 1 pod per service
   selector:
     matchLabels:
       app: frontend
